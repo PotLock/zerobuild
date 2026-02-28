@@ -1,9 +1,12 @@
-//! ZeroBuild: request_deploy tool.
+//! GitHub Connector - Push tool.
 //!
-//! Pushes the current project snapshot directly to GitHub using the GitHub
-//! REST API (git tree/commit/ref endpoints). No backend proxy required.
+//! Pushes the current project snapshot to GitHub, creating a new repository
+//! if needed. Uses the GitHub REST API (git tree/commit/ref endpoints).
 //!
-//! Requires a GitHub token stored via the OAuth flow (`/auth/github`).
+//! This is part of the GitHub connector - allows users to upload their
+//! built projects to GitHub without manual git commands.
+//!
+//! Requires a GitHub token from the GitHub connector (`github_connect`).
 
 use super::traits::{Tool, ToolResult};
 use crate::config::ZerobuildConfig;
@@ -14,29 +17,29 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-const TOOL_NAME: &str = "request_deploy";
+const TOOL_NAME: &str = "github_push";
 const GITHUB_API_BASE: &str = "https://api.github.com";
 
-pub struct RequestDeployTool {
+pub struct GitHubPushTool {
     config: Arc<ZerobuildConfig>,
 }
 
-impl RequestDeployTool {
+impl GitHubPushTool {
     pub fn new(config: Arc<ZerobuildConfig>) -> Self {
         Self { config }
     }
 }
 
 #[async_trait]
-impl Tool for RequestDeployTool {
+impl Tool for GitHubPushTool {
     fn name(&self) -> &str {
         TOOL_NAME
     }
 
     fn description(&self) -> &str {
-        "Deploy the current project to GitHub by pushing the snapshot files. \
-         Creates or updates a GitHub repository with the project code. \
-         Requires GitHub authentication (use github_connect first). \
+        "Push the current project to GitHub. Creates a new repository if it doesn't exist, \
+         or updates the existing repository with the current snapshot. \
+         Part of the GitHub connector - requires GitHub authentication (use github_connect first). \
          Returns the repository URL."
     }
 
@@ -397,12 +400,12 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn make_tool(tmp: &TempDir) -> RequestDeployTool {
+    fn make_tool(tmp: &TempDir) -> GitHubPushTool {
         let config = Arc::new(ZerobuildConfig {
             db_path: tmp.path().join("test.db").to_string_lossy().to_string(),
             ..ZerobuildConfig::default()
         });
-        RequestDeployTool::new(config)
+        GitHubPushTool::new(config)
     }
 
     #[test]

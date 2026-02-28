@@ -4344,11 +4344,19 @@ pub struct ZerobuildConfig {
     #[serde(default = "default_docker_sandbox_image")]
     pub docker_image: String,
 
-    /// GitHub OAuth client ID for the `/auth/github` flow.
+    /// GitHub OAuth client ID for the GitHub connector (`/auth/github` flow).
+    /// If not set, ZeroBuild will use the official OAuth Proxy for seamless connection.
     pub github_client_id: String,
 
-    /// GitHub OAuth client secret for the `/auth/github` flow.
+    /// GitHub OAuth client secret for the GitHub connector.
+    /// If not set, ZeroBuild will use the official OAuth Proxy for seamless connection.
     pub github_client_secret: String,
+
+    /// OAuth Proxy URL for the GitHub connector.
+    /// Used when user doesn't have their own GitHub OAuth App.
+    /// Default: "https://zerobuild-oauth-proxy.githubz.workers.dev" (official proxy)
+    #[serde(default = "default_github_oauth_proxy")]
+    pub github_oauth_proxy: String,
 
     /// Path to the ZeroBuild SQLite database. Default: "./data/zerobuild.db".
     pub db_path: String,
@@ -4362,10 +4370,15 @@ impl Default for ZerobuildConfig {
             e2b_timeout_ms: 600_000,
             github_client_id: String::new(),
             github_client_secret: String::new(),
+            github_oauth_proxy: default_github_oauth_proxy(),
             docker_image: default_docker_sandbox_image(),
             db_path: "./data/zerobuild.db".to_string(),
         }
     }
+}
+
+fn default_github_oauth_proxy() -> String {
+    "https://zerobuild-oauth-proxy.githubz.workers.dev".to_string()
 }
 
 fn default_docker_sandbox_image() -> String {

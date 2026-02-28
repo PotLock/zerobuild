@@ -88,7 +88,7 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
     );
     println!();
 
-    print_step(1, 9, "Workspace Setup");
+    print_step(1, 10, "Workspace Setup");
     let (workspace_dir, config_path) = setup_workspace().await?;
     match resolve_interactive_onboarding_mode(&config_path, force)? {
         InteractiveOnboardingMode::FullOnboarding => {}
@@ -97,28 +97,31 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
         }
     }
 
-    print_step(2, 9, "AI Provider & API Key");
+    print_step(2, 10, "AI Provider & API Key");
     let (provider, api_key, model, provider_api_url) = setup_provider(&workspace_dir).await?;
 
-    print_step(3, 9, "Channels (How You Talk to ZeroBuild)");
+    print_step(3, 10, "Channels (How You Talk to ZeroBuild)");
     let channels_config = setup_channels()?;
 
-    print_step(4, 9, "Tunnel (Expose to Internet)");
+    print_step(4, 10, "Tunnel (Expose to Internet)");
     let tunnel_config = setup_tunnel()?;
 
-    print_step(5, 9, "Tool Mode & Security");
+    print_step(5, 10, "Tool Mode & Security");
     let (composio_config, secrets_config) = setup_tool_mode()?;
 
-    print_step(6, 9, "Hardware (Physical World)");
+    print_step(6, 10, "Connectors (GitHub, etc.)");
+    let zerobuild_config = setup_connectors()?;
+
+    print_step(7, 10, "Hardware (Physical World)");
     let hardware_config = setup_hardware()?;
 
-    print_step(7, 9, "Memory Configuration");
+    print_step(8, 10, "Memory Configuration");
     let memory_config = setup_memory()?;
 
-    print_step(8, 9, "Project Context (Personalize Your Agent)");
+    print_step(9, 10, "Project Context (Personalize Your Agent)");
     let project_ctx = setup_project_context()?;
 
-    print_step(9, 9, "Workspace Files");
+    print_step(10, 10, "Workspace Files");
     scaffold_workspace(&workspace_dir, &project_ctx).await?;
 
     // ── Build config ──
@@ -167,7 +170,7 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
         query_classification: crate::config::QueryClassificationConfig::default(),
         transcription: crate::config::TranscriptionConfig::default(),
         sop: crate::config::SopConfig::default(),
-        zerobuild: crate::config::ZerobuildConfig::default(),
+        zerobuild: zerobuild_config,
     };
 
     println!(
@@ -2814,7 +2817,83 @@ fn setup_tool_mode() -> Result<(ComposioConfig, SecretsConfig)> {
     Ok((composio_config, secrets_config))
 }
 
-// ── Step 6: Hardware (Physical World) ───────────────────────────
+// ── Step 6: Connectors (GitHub, etc.) ───────────────────────────
+
+fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
+    use crate::config::ZerobuildConfig;
+    use dialoguer::{Confirm, Input};
+
+    print_bullet("Connect external services for seamless integration.");
+    print_bullet("These can also be connected later via chat.");
+    println!();
+
+    // Start with default config (includes OAuth Proxy URL)
+    let mut config = ZerobuildConfig::default();
+
+    // ── GitHub Connector ──
+    println!(
+        "  {} {}",
+        style("GitHub Integration").white().bold(),
+        style("— Create repos, push code, open issues, manage PRs").dim()
+    );
+    print_bullet("ZeroBuild uses an official OAuth Proxy for secure authentication.");
+    print_bullet("No need to create your own GitHub OAuth App.");
+    println!();
+
+    let connect_github = Confirm::new()
+        .with_prompt("  Connect GitHub now? (can be done later via chat)")
+        .default(false)
+        .interact()?;
+
+    if connect_github {
+        println!();
+        println!(
+            "  {} {}",
+            style("📋 Instructions:").cyan().bold(),
+            style("Follow these steps to connect GitHub").dim()
+        );
+        println!();
+        println!(
+            "    {} Start ZeroBuild: {}",
+            style("1.").cyan(),
+            style("zerobuild gateway").yellow()
+        );
+        println!(
+            "    {} In your chat (Telegram/Discord/etc), say: {}",
+            style("2.").cyan(),
+            style("\"Connect GitHub\"").yellow()
+        );
+        println!(
+            "    {} Click the link and authorize on GitHub",
+            style("3.").cyan()
+        );
+        println!(
+            "    {} Done! You can now push code, create issues, etc.",
+            style("4.").cyan()
+        );
+        println!();
+        println!(
+            "  {} {}",
+            style("✓").green().bold(),
+            style("GitHub connector ready (connect via chat when ready)").green()
+        );
+    } else {
+        println!();
+        println!(
+            "  {} {}",
+            style("→").dim(),
+            style("Skipped — say \"Connect GitHub\" in chat anytime to connect").dim()
+        );
+    }
+
+    // Future connectors can be added here
+    // Example: GitLab, Bitbucket, Linear, etc.
+
+    println!();
+    Ok(config)
+}
+
+// ── Step 7: Hardware (Physical World) ───────────────────────────
 
 fn setup_hardware() -> Result<HardwareConfig> {
     print_bullet("ZeroBuild can talk to physical hardware (LEDs, sensors, motors).");
@@ -5389,6 +5468,18 @@ fn print_summary(config: &Config) {
         } else {
             "disabled (sovereign mode)".to_string()
         }
+    );
+
+    // Connectors (GitHub, etc.)
+    let github_status = if config.zerobuild.github_client_id.is_empty() {
+        "ready (use OAuth Proxy — say 'Connect GitHub' in chat)".to_string()
+    } else {
+        style("custom OAuth App configured").green().to_string()
+    };
+    println!(
+        "    {} Connectors:    {}",
+        style("🔌").cyan(),
+        github_status
     );
 
     // Secrets

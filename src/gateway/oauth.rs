@@ -1,8 +1,14 @@
-//! GitHub OAuth flow handlers: `/auth/github` and `/auth/github/callback`.
+//! GitHub Connector - OAuth flow handlers: `/auth/github` and `/auth/github/callback`.
 //!
-//! These routes allow the user to connect their GitHub account by going through
-//! the standard OAuth 2.0 authorization code flow. The resulting token is
-//! stored in the local SQLite database.
+//! This is the GitHub connector that allows ZeroBuild to create repos, push code,
+//! open issues, and manage PRs on behalf of the user.
+//!
+//! Supports two modes:
+//! 1. User's own OAuth App (advanced) - requires github_client_id and github_client_secret
+//! 2. Official ZeroBuild OAuth Proxy (default) - seamless, no setup required
+//!
+//! The proxy mode allows users to connect GitHub without creating their own OAuth App.
+//! The proxy service securely stores the CLIENT_SECRET and handles the OAuth exchange.
 
 use super::AppState;
 use axum::{
@@ -12,48 +18,61 @@ use axum::{
 };
 use serde::Deserialize;
 
-/// Query parameters returned by GitHub's OAuth redirect.
+/// Query parameters returned by OAuth redirect.
+/// Can come from GitHub directly or from the OAuth Proxy.
 #[derive(Deserialize)]
 pub struct OAuthCallbackQuery {
+    /// Authorization code (from GitHub direct flow)
     pub code: Option<String>,
+    /// Access token (from OAuth Proxy - already exchanged)
+    pub token: Option<String>,
+    /// GitHub username (from OAuth Proxy)
+    pub username: Option<String>,
+    /// Error message
     pub error: Option<String>,
+    /// Error description
     pub error_description: Option<String>,
 }
 
-/// GET /auth/github — redirect the user to GitHub's OAuth authorization page.
+/// GET /auth/github — redirect to GitHub OAuth or OAuth Proxy.
 pub async fn handle_github_auth(State(state): State<AppState>) -> impl IntoResponse {
     let cfg = state.config.lock().zerobuild.clone();
 
-    if cfg.github_client_id.is_empty() {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "GitHub OAuth is not configured. Set github_client_id and github_client_secret in config.".to_string(),
-        )
-            .into_response();
+    // If user has their own OAuth app configured, use direct GitHub OAuth
+    if !cfg.github_client_id.is_empty() {
+        let scope = "repo,read:user,user:email";
+        let auth_url = format!(
+            "https://github.com/login/oauth/authorize?client_id={client_id}&scope={scope}",
+            client_id = cfg.github_client_id,
+            scope = urlencoding::encode(scope),
+        );
+        return (StatusCode::FOUND, [(header::LOCATION, auth_url)]).into_response();
     }
 
-    let scope = "repo,read:user,user:email";
-    let redirect_uri = ""; // GitHub will use the app's registered callback
+    // Otherwise, use the official OAuth Proxy for seamless connection
+    let proxy_url = cfg.github_oauth_proxy;
+    // Get port from config (default is 3000)
+    let port = state.config.lock().gateway.port;
+    let callback_url = format!("http://127.0.0.1:{}/auth/github/callback", port);
     let auth_url = format!(
-        "https://github.com/login/oauth/authorize?client_id={client_id}&scope={scope}",
-        client_id = cfg.github_client_id,
-        scope = urlencoding::encode(scope),
+        "{}/start?redirect_uri={}",
+        proxy_url,
+        urlencoding::encode(&callback_url)
     );
 
-    let _ = redirect_uri; // unused — GitHub uses registered callback
-
-    (
-        StatusCode::FOUND,
-        [(header::LOCATION, auth_url)],
-    )
-        .into_response()
+    (StatusCode::FOUND, [(header::LOCATION, auth_url)]).into_response()
 }
 
-/// GET /auth/github/callback — exchange OAuth code for access token and store it.
+/// GET /auth/github/callback — handle OAuth callback.
+///
+/// Two possible flows:
+/// 1. Direct GitHub OAuth: receives `code`, exchange for token using client_secret
+/// 2. OAuth Proxy: receives `token` directly (proxy already exchanged the code)
 pub async fn handle_github_callback(
     State(state): State<AppState>,
     Query(params): Query<OAuthCallbackQuery>,
 ) -> impl IntoResponse {
+    // Handle error from either flow
     if let Some(err) = params.error {
         let desc = params.error_description.as_deref().unwrap_or("unknown error");
         return (
@@ -63,19 +82,28 @@ pub async fn handle_github_callback(
             .into_response();
     }
 
+    // Check if this is a callback from the OAuth Proxy (token provided directly)
+    if let Some(token) = params.token {
+        let username = params.username;
+        return save_token_and_respond(state, token, username).await;
+    }
+
+    // Otherwise, this is a direct GitHub OAuth callback (code exchange required)
     let code = match params.code {
         Some(c) if !c.is_empty() => c,
         _ => {
-            return (StatusCode::BAD_REQUEST, "Missing OAuth code.".to_string()).into_response();
+            return (StatusCode::BAD_REQUEST, "Missing OAuth code or token.").into_response();
         }
     };
 
     let cfg = state.config.lock().zerobuild.clone();
 
+    // For direct flow, client_id and client_secret are required
     if cfg.github_client_id.is_empty() || cfg.github_client_secret.is_empty() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
-            "GitHub OAuth is not configured.".to_string(),
+            "GitHub OAuth is not configured. Please set github_client_id and github_client_secret, \
+             or use the default OAuth Proxy by leaving these empty.".to_string(),
         )
             .into_response();
     }
@@ -153,13 +181,23 @@ pub async fn handle_github_callback(
     // Fetch the authenticated user's login name
     let username = fetch_github_username(&client, &access_token).await;
 
-    // Store token in SQLite
+    save_token_and_respond(state, access_token, username).await
+}
+
+/// Save token to database and return success response.
+async fn save_token_and_respond(
+    state: AppState,
+    token: String,
+    username: Option<String>,
+) -> axum::response::Response {
+    let cfg = state.config.lock().zerobuild.clone();
     let db_path = std::path::PathBuf::from(&cfg.db_path);
+
     match crate::store::init_db(&db_path) {
         Ok(conn) => {
             if let Err(e) = crate::store::tokens::save_github_token(
                 &conn,
-                &access_token,
+                &token,
                 username.as_deref(),
             ) {
                 return (
@@ -179,15 +217,16 @@ pub async fn handle_github_callback(
     }
 
     let display_name = username.as_deref().unwrap_or("unknown user");
-    tracing::info!("GitHub OAuth: connected as {display_name}");
+    tracing::info!("GitHub OAuth: connected as {}", display_name);
 
     // Return a simple success page
     let html = format!(
         "<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:40px'>
         <h2>✅ GitHub Connected!</h2>
-        <p>Connected as <strong>{display_name}</strong></p>
-        <p>You can close this window and return to Telegram.</p>
-        </body></html>"
+        <p>Connected as <strong>{}</strong></p>
+        <p>You can close this window and return to your chat.</p>
+        </body></html>",
+        display_name
     );
 
     (

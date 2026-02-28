@@ -1,7 +1,7 @@
-//! GitHub OAuth token persistence.
+//! GitHub connector - OAuth token persistence.
 //!
-//! Tokens are stored in plaintext in the local SQLite database. The database
-//! should only be accessible to the local user running ZeroBuild.
+//! Stores GitHub connector tokens in the local SQLite database.
+//! The database should only be accessible to the local user running ZeroBuild.
 
 use anyhow::Result;
 use chrono::Utc;

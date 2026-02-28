@@ -1,217 +1,269 @@
 # ZeroBuild Commands Reference
 
-This reference is derived from the current CLI surface (`zerobuild --help`).
+Complete CLI reference for ZeroBuild.
 
-Last verified: **February 21, 2026**.
+Last verified: **March 2026**.
 
 ## Top-Level Commands
 
 | Command | Purpose |
-|---|---|
-| `onboard` | Initialize workspace/config quickly or interactively |
+|---------|---------|
+| `onboard` | Initialize workspace and configuration |
 | `agent` | Run interactive chat or single-message mode |
-| `gateway` | Start webhook and WhatsApp HTTP gateway |
-| `daemon` | Start supervised runtime (gateway + channels + optional heartbeat/scheduler) |
-| `service` | Manage user-level OS service lifecycle |
-| `doctor` | Run diagnostics and freshness checks |
-| `status` | Print current configuration and system summary |
-| `estop` | Engage/resume emergency stop levels and inspect estop state |
+| `gateway` | Start webhook gateway for Telegram, Discord, Slack, etc. |
+| `daemon` | Start full runtime (gateway + channels + scheduler) |
+| `service` | Manage OS service lifecycle |
+| `doctor` | Run diagnostics |
+| `status` | Show system status |
 | `cron` | Manage scheduled tasks |
 | `models` | Refresh provider model catalogs |
-| `providers` | List provider IDs, aliases, and active provider |
-| `channel` | Manage channels and channel health checks |
-| `integrations` | Inspect integration details |
-| `skills` | List/install/remove skills |
-| `migrate` | Import from external runtimes (currently OpenClaw) |
-| `config` | Export machine-readable config schema |
-| `completions` | Generate shell completion scripts to stdout |
-| `hardware` | Discover and introspect USB hardware |
-| `peripheral` | Configure and flash peripherals |
+| `providers` | List supported AI providers |
+| `channel` | Manage channels (Telegram, Discord, Slack) |
+| `skills` | Manage skills |
+| `memory` | Manage agent memory |
+| `config` | Export configuration schema |
+| `completions` | Generate shell completions |
 
-## Command Groups
+## Essential Commands
 
 ### `onboard`
 
-- `zerobuild onboard`
-- `zerobuild onboard --interactive`
-- `zerobuild onboard --channels-only`
-- `zerobuild onboard --force`
-- `zerobuild onboard --api-key <KEY> --provider <ID> --memory <sqlite|lucid|markdown|none>`
-- `zerobuild onboard --api-key <KEY> --provider <ID> --model <MODEL_ID> --memory <sqlite|lucid|markdown|none>`
-- `zerobuild onboard --api-key <KEY> --provider <ID> --model <MODEL_ID> --memory <sqlite|lucid|markdown|none> --force`
+Initialize ZeroBuild with your API keys and preferences.
 
-`onboard` safety behavior:
+```bash
+# Interactive onboarding
+zerobuild onboard --interactive
 
-- If `config.toml` already exists and you run `--interactive`, onboarding now offers two modes:
-  - Full onboarding (overwrite `config.toml`)
-  - Provider-only update (update provider/model/API key while preserving existing channels, tunnel, memory, hooks, and other settings)
-- In non-interactive environments, existing `config.toml` causes a safe refusal unless `--force` is passed.
-- Use `zerobuild onboard --channels-only` when you only need to rotate channel tokens/allowlists.
+# Non-interactive with all options
+zerobuild onboard \
+  --api-key "sk-or-v1-..." \
+  --provider openrouter \
+  --model "anthropic/claude-sonnet-4" \
+  --e2b-api-key "e2b_..." \
+  --github-client-id "Iv1.xxx" \
+  --github-client-secret "xxx"
+
+# Docker instead of E2B
+zerobuild onboard \
+  --docker-image "node:20-slim"
+```
+
+**Options:**
+- `--api-key <KEY>` — Provider API key
+- `--provider <ID>` — Provider ID (openrouter, anthropic, openai, etc.)
+- `--model <MODEL>` — Default model ID
+- `--e2b-api-key <KEY>` — E2B API key for cloud sandboxes
+- `--docker-image <IMAGE>` — Docker image for local sandboxes
+- `--github-client-id <ID>` — GitHub OAuth app client ID (for repo creation, push, issues, PRs)
+- `--github-client-secret <SECRET>` — GitHub OAuth app secret (for repo creation, push, issues, PRs)
+- `--interactive` — Interactive setup wizard
+- `--force` — Overwrite existing config
+
+### `gateway`
+
+Start the webhook gateway to receive messages from Telegram, Discord, Slack, etc.
+
+```bash
+# Default: localhost:3000
+zerobuild gateway
+
+# Custom host/port
+zerobuild gateway --host 0.0.0.0 --port 8080
+```
+
+### `daemon`
+
+Start the full autonomous runtime (gateway + channels + scheduler).
+
+```bash
+zerobuild daemon
+zerobuild daemon --host 0.0.0.0 --port 3000
+```
 
 ### `agent`
 
-- `zerobuild agent`
-- `zerobuild agent -m "Hello"`
-- `zerobuild agent --provider <ID> --model <MODEL> --temperature <0.0-2.0>`
-- `zerobuild agent --peripheral <board:path>`
+Run the agent in CLI mode.
 
-Tip:
+```bash
+# Interactive mode
+zerobuild agent
 
-- In interactive chat, you can ask for route changes in natural language (for example “conversation uses kimi, coding uses gpt-5.3-codex”); the assistant can persist this via tool `model_routing_config`.
+# Single message - web app
+zerobuild agent -m "Build a landing page with React"
 
-### `gateway` / `daemon`
+# Single message - mobile app
+zerobuild agent -m "Create a React Native todo app"
 
-- `zerobuild gateway [--host <HOST>] [--port <PORT>]`
-- `zerobuild daemon [--host <HOST>] [--port <PORT>]`
+# Single message - backend
+zerobuild agent -m "Build a Python FastAPI service with user auth"
 
-### `estop`
+# Single message - CLI tool
+zerobuild agent -m "Write a Node.js CLI for file encryption"
 
-- `zerobuild estop` (engage `kill-all`)
-- `zerobuild estop --level network-kill`
-- `zerobuild estop --level domain-block --domain "*.chase.com" [--domain "*.paypal.com"]`
-- `zerobuild estop --level tool-freeze --tool shell [--tool browser]`
-- `zerobuild estop status`
-- `zerobuild estop resume`
-- `zerobuild estop resume --network`
-- `zerobuild estop resume --domain "*.chase.com"`
-- `zerobuild estop resume --tool shell`
-- `zerobuild estop resume --otp <123456>`
-
-Notes:
-
-- `estop` commands require `[security.estop].enabled = true`.
-- When `[security.estop].require_otp_to_resume = true`, `resume` requires OTP validation.
-- OTP prompt appears automatically if `--otp` is omitted.
-
-### `service`
-
-- `zerobuild service install`
-- `zerobuild service start`
-- `zerobuild service stop`
-- `zerobuild service restart`
-- `zerobuild service status`
-- `zerobuild service uninstall`
-
-### `cron`
-
-- `zerobuild cron list`
-- `zerobuild cron add <expr> [--tz <IANA_TZ>] <command>`
-- `zerobuild cron add-at <rfc3339_timestamp> <command>`
-- `zerobuild cron add-every <every_ms> <command>`
-- `zerobuild cron once <delay> <command>`
-- `zerobuild cron remove <id>`
-- `zerobuild cron pause <id>`
-- `zerobuild cron resume <id>`
-
-Notes:
-
-- Mutating schedule/cron actions require `cron.enabled = true`.
-- Shell command payloads for schedule creation (`create` / `add` / `once`) are validated by security command policy before job persistence.
-
-### `models`
-
-- `zerobuild models refresh`
-- `zerobuild models refresh --provider <ID>`
-- `zerobuild models refresh --force`
-
-`models refresh` currently supports live catalog refresh for provider IDs: `openrouter`, `openai`, `anthropic`, `groq`, `mistral`, `deepseek`, `xai`, `together-ai`, `gemini`, `ollama`, `llamacpp`, `sglang`, `vllm`, `astrai`, `venice`, `fireworks`, `cohere`, `moonshot`, `glm`, `zai`, `qwen`, and `nvidia`.
-
-### `doctor`
-
-- `zerobuild doctor`
-- `zerobuild doctor models [--provider <ID>] [--use-cache]`
-- `zerobuild doctor traces [--limit <N>] [--event <TYPE>] [--contains <TEXT>]`
-- `zerobuild doctor traces --id <TRACE_ID>`
-
-`doctor traces` reads runtime tool/model diagnostics from `observability.runtime_trace_path`.
+# With specific provider/model
+zerobuild agent --provider anthropic --model claude-sonnet-4-5
+```
 
 ### `channel`
 
-- `zerobuild channel list`
-- `zerobuild channel start`
-- `zerobuild channel doctor`
-- `zerobuild channel bind-telegram <IDENTITY>`
-- `zerobuild channel add <type> <json>`
-- `zerobuild channel remove <name>`
+Manage communication channels.
 
-Runtime in-chat commands (Telegram/Discord while channel server is running):
+```bash
+# List configured channels
+zerobuild channel list
 
-- `/models`
-- `/models <provider>`
-- `/model`
-- `/model <model-id>`
+# Telegram
+zerobuild channel bind-telegram @yourbot
 
-Channel runtime also watches `config.toml` and hot-applies updates to:
-- `default_provider`
-- `default_model`
-- `default_temperature`
-- `api_key` / `api_url` (for the default provider)
-- `reliability.*` provider retry settings
+# Discord
+zerobuild channel add discord '{"token":"YOUR_BOT_TOKEN"}'
 
-`add/remove` currently route you back to managed setup/manual config paths (not full declarative mutators yet).
+# Slack
+zerobuild channel add slack '{"token":"xoxb-YOUR-TOKEN"}'
 
-### `integrations`
+# Start all channels
+zerobuild channel start
+```
 
-- `zerobuild integrations info <name>`
+### `models`
 
-### `skills`
+Refresh available models from providers.
 
-- `zerobuild skills list`
-- `zerobuild skills audit <source_or_name>`
-- `zerobuild skills install <source>`
-- `zerobuild skills remove <name>`
+```bash
+# Refresh all providers
+zerobuild models refresh
 
-`<source>` accepts git remotes (`https://...`, `http://...`, `ssh://...`, and `git@host:owner/repo.git`) or a local filesystem path.
+# Refresh specific provider
+zerobuild models refresh --provider openrouter
+```
 
-`skills install` always runs a built-in static security audit before the skill is accepted. The audit blocks:
-- symlinks inside the skill package
-- script-like files (`.sh`, `.bash`, `.zsh`, `.ps1`, `.bat`, `.cmd`)
-- high-risk command snippets (for example pipe-to-shell payloads)
-- markdown links that escape the skill root, point to remote markdown, or target script files
+### `status`
 
-Use `skills audit` to manually validate a candidate skill directory (or an installed skill by name) before sharing it.
+Check system status.
 
-Skill manifests (`SKILL.toml`) support `prompts` and `[[tools]]`; both are injected into the agent system prompt at runtime, so the model can follow skill instructions without manually reading skill files.
+```bash
+zerobuild status
+```
 
-### `migrate`
+### `doctor`
 
-- `zerobuild migrate openclaw [--source <path>] [--dry-run]`
+Run diagnostics.
+
+```bash
+# General diagnostics
+zerobuild doctor
+
+# Check models
+zerobuild doctor models
+
+# View traces
+zerobuild doctor traces
+```
+
+### `memory`
+
+Manage agent memory.
+
+```bash
+# List memories
+zerobuild memory list
+
+# Get specific memory
+zerobuild memory get <KEY>
+
+# Clear all memories
+zerobuild memory clear
+
+# Show memory stats
+zerobuild memory stats
+```
+
+### `service`
+
+Manage ZeroBuild as a system service.
+
+```bash
+# Install service
+zerobuild service install
+
+# Start service
+zerobuild service start
+
+# Check status
+zerobuild service status
+
+# Stop service
+zerobuild service stop
+
+# Restart service
+zerobuild service restart
+
+# Uninstall service
+zerobuild service uninstall
+```
 
 ### `config`
 
-- `zerobuild config schema`
+Export configuration schema.
 
-`config schema` prints a JSON Schema (draft 2020-12) for the full `config.toml` contract to stdout.
+```bash
+# Print JSON schema
+zerobuild config schema
+```
 
 ### `completions`
 
-- `zerobuild completions bash`
-- `zerobuild completions fish`
-- `zerobuild completions zsh`
-- `zerobuild completions powershell`
-- `zerobuild completions elvish`
-
-`completions` is stdout-only by design so scripts can be sourced directly without log/warning contamination.
-
-### `hardware`
-
-- `zerobuild hardware discover`
-- `zerobuild hardware introspect <path>`
-- `zerobuild hardware info [--chip <chip_name>]`
-
-### `peripheral`
-
-- `zerobuild peripheral list`
-- `zerobuild peripheral add <board> <path>`
-- `zerobuild peripheral flash [--port <serial_port>]`
-- `zerobuild peripheral setup-uno-q [--host <ip_or_host>]`
-- `zerobuild peripheral flash-nucleo`
-
-## Validation Tip
-
-To verify docs against your current binary quickly:
+Generate shell completion scripts.
 
 ```bash
+zerobuild completions bash >> ~/.bashrc
+zerobuild completions zsh >> ~/.zshrc
+zerobuild completions fish > ~/.config/fish/completions/zerobuild.fish
+```
+
+## Configuration File
+
+ZeroBuild stores configuration at `~/.zerobuild/config.toml`:
+
+```toml
+[provider]
+provider = "openrouter"
+api_key = "sk-or-v1-..."
+model = "anthropic/claude-sonnet-4"
+
+[channels.telegram]
+enabled = true
+identity = "@yourbuildbot"
+token = "..."
+
+[zerobuild]
+e2b_api_key = "e2b_..."
+# GitHub connector — leave empty to use official OAuth Proxy (recommended)
+github_client_id = ""
+github_client_secret = ""
+db_path = "./data/zerobuild.db"
+```
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `E2B_API_KEY` | E2B sandbox API key |
+| `OPENROUTER_API_KEY` | OpenRouter API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
+| `DISCORD_BOT_TOKEN` | Discord bot token |
+| `SLACK_BOT_TOKEN` | Slack bot token |
+
+## Getting Help
+
+```bash
+# General help
 zerobuild --help
-zerobuild <command> --help
+
+# Command-specific help
+zerobuild onboard --help
+zerobuild agent --help
+zerobuild gateway --help
 ```

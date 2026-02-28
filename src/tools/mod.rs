@@ -50,7 +50,7 @@ pub mod screenshot;
 pub mod shell;
 pub mod traits;
 pub mod web_search_tool;
-pub mod deploy;
+pub mod github_push;
 pub mod github_ops;
 
 pub use browser::{BrowserTool, ComputerUseConfig};
@@ -72,8 +72,11 @@ pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
 pub use git_operations::GitOperationsTool;
 pub use glob_search::GlobSearchTool;
+#[allow(unused_imports)]
 pub use hardware_board_info::HardwareBoardInfoTool;
+#[allow(unused_imports)]
 pub use hardware_memory_map::HardwareMemoryMapTool;
+#[allow(unused_imports)]
 pub use hardware_memory_read::HardwareMemoryReadTool;
 pub use http_request::HttpRequestTool;
 pub use image_info::ImageInfoTool;
@@ -93,7 +96,7 @@ pub use traits::Tool;
 #[allow(unused_imports)]
 pub use traits::{ToolResult, ToolSpec};
 pub use web_search_tool::WebSearchTool;
-pub use deploy::RequestDeployTool;
+pub use github_push::GitHubPushTool;
 pub use github_ops::{
     GitHubAnalyzePRTool, GitHubConnectTool, GitHubCreateIssueTool, GitHubCreateIssueWithHashtagsTool,
     GitHubCreatePRTool, GitHubGetIssueTool, GitHubGetPRTool, GitHubListIssuesTool,
@@ -190,7 +193,7 @@ pub fn sandbox_tools(
                 );
                 // Return only GitHub tools if no sandbox provider is available
                 return vec![
-                    Box::new(RequestDeployTool::new(zerobuild_config.clone())),
+                    Box::new(GitHubPushTool::new(zerobuild_config.clone())),
                     Box::new(GitHubCreateIssueTool::new(zerobuild_config.clone())),
                     Box::new(GitHubCreateIssueWithHashtagsTool::new(zerobuild_config.clone())),
                     Box::new(GitHubCreatePRTool::new(zerobuild_config.clone())),
@@ -227,7 +230,7 @@ pub fn sandbox_tools(
         Box::new(SandboxGetPreviewUrlTool::new(sandbox.clone())),
         Box::new(SandboxSaveSnapshotTool::new(sandbox.clone(), db_path.clone())),
         Box::new(SandboxKillTool::new(sandbox)),
-        Box::new(RequestDeployTool::new(zerobuild_config.clone())),
+        Box::new(GitHubPushTool::new(zerobuild_config.clone())),
         Box::new(GitHubCreateIssueTool::new(zerobuild_config.clone())),
         Box::new(GitHubCreateIssueWithHashtagsTool::new(zerobuild_config.clone())),
         Box::new(GitHubCreatePRTool::new(zerobuild_config.clone())),
@@ -419,7 +422,7 @@ pub fn all_tools_with_runtime(
     // These are available when user wants to build web apps or deploy
     let zb_cfg = Arc::new(root_config.zerobuild.clone());
     let sandbox_and_deploy = sandbox_tools(zb_cfg);
-    for tool in sandbox_tools {
+    for tool in sandbox_and_deploy {
         tool_arcs.push(Arc::from(tool));
     }
 

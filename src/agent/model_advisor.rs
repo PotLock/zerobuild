@@ -235,8 +235,10 @@ pub fn default_classification_rules() -> Vec<ClassificationRule> {
         ClassificationRule {
             hint: "code".to_string(),
             keywords: vec![
-                "code", "programming", "debug", "function", "api", 
-                "javascript", "typescript", "python", "rust", "react", "vue"
+                "code".to_string(), "programming".to_string(), "debug".to_string(), 
+                "function".to_string(), "api".to_string(), 
+                "javascript".to_string(), "typescript".to_string(), 
+                "python".to_string(), "rust".to_string(), "react".to_string(), "vue".to_string()
             ],
             patterns: vec!["```".to_string(), "fn ".to_string(), "class ".to_string()],
             min_length: None,
@@ -246,8 +248,9 @@ pub fn default_classification_rules() -> Vec<ClassificationRule> {
         ClassificationRule {
             hint: "reasoning".to_string(),
             keywords: vec![
-                "analyze", "explain why", "how does", "architecture",
-                "design pattern", "optimize", "performance"
+                "analyze".to_string(), "explain why".to_string(), 
+                "how does".to_string(), "architecture".to_string(),
+                "design pattern".to_string(), "optimize".to_string(), "performance".to_string()
             ],
             patterns: vec![],
             min_length: Some(50),
@@ -256,7 +259,10 @@ pub fn default_classification_rules() -> Vec<ClassificationRule> {
         },
         ClassificationRule {
             hint: "fast".to_string(),
-            keywords: vec!["hello", "hi", "thanks", "bye", "quick question"],
+            keywords: vec![
+                "hello".to_string(), "hi".to_string(), "thanks".to_string(), 
+                "bye".to_string(), "quick question".to_string()
+            ],
             patterns: vec![],
             min_length: None,
             max_length: Some(50),

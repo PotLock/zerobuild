@@ -3209,7 +3209,7 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
             let _ = mem.store(
                 "model_recommendation",
                 &recommendation,
-                Some("system"),
+                MemoryCategory::Core,
                 None,
             ).await;
         }

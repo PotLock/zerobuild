@@ -1,7 +1,8 @@
-//! GitHub operation tools: issue, PR, review, list repos, etc.
+//! GitHub connector - operation tools: issue, PR, review, list repos, etc.
 //!
-//! These tools call the GitHub REST API directly using the OAuth token
-//! stored in the local SQLite database. No backend proxy required.
+//! These tools are part of the GitHub connector. They call the GitHub REST API
+//! directly using the OAuth token stored in the local SQLite database.
+//! No backend proxy required for these operations.
 //!
 //! Token is loaded from `config.db_path` on each execute call.
 
