@@ -1,0 +1,12 @@
+{
+  "name": "calculator",
+  "version": "0.1.0",
+  "description": "Simple calculator",
+  "entry": "target/release/calculator",
+  "language": "rust",
+  "parameters": {
+    "a": "number",
+    "b": "number",
+    "operation": "string"
+  }
+}

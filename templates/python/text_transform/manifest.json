@@ -1,0 +1,11 @@
+{
+  "name": "text_transform",
+  "version": "0.1.0",
+  "description": "Transform text (upper, lower, reverse)",
+  "entry": "main.py",
+  "language": "python",
+  "parameters": {
+    "text": "string",
+    "operation": "string"
+  }
+}

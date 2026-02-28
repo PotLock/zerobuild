@@ -1,0 +1,10 @@
+{
+  "name": "word_count",
+  "version": "0.1.0",
+  "description": "Count words in text",
+  "entry": "word_count",
+  "language": "go",
+  "parameters": {
+    "text": "string"
+  }
+}
