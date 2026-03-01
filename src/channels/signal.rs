@@ -96,6 +96,67 @@ impl SignalChannel {
         builder.build().expect("Signal HTTP client should build")
     }
 
+    /// Process Signal attachments and return a string to append to message content.
+    /// Reads text files from the signal-cli attachments directory.
+    fn process_attachments(&self, attachments: &[serde_json::Value]) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        // Get signal-cli attachments directory
+        let attachments_dir = std::env::var("HOME")
+            .ok()
+            .map(|home| std::path::PathBuf::from(home).join(".local/share/signal-cli/attachments"));
+
+        for att in attachments {
+            let content_type = att
+                .get("contentType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("application/octet-stream");
+            let filename = att
+                .get("filename")
+                .and_then(|v| v.as_str())
+                .unwrap_or("attachment");
+            let id = att
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            // Only process text-based attachments
+            if !content_type.starts_with("text/") && content_type != "application/json" {
+                parts.push(format!("[Attachment: {}] ({})", filename, content_type));
+                continue;
+            }
+
+            // Try to read from signal-cli attachments directory
+            if let Some(ref dir) = attachments_dir {
+                let path = dir.join(id);
+                if path.exists() {
+                    match std::fs::read_to_string(&path) {
+                        Ok(content) => {
+                            parts.push(format!(
+                                "[Attachment: {}]\n```\n{}\n```",
+                                filename,
+                                content
+                            ));
+                        }
+                        Err(e) => {
+                            tracing::warn!(path = %path.display(), error = %e, "Failed to read Signal attachment");
+                            parts.push(format!("[Attachment: {}] (read error)", filename));
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // File not found or couldn't read, just mention it
+            parts.push(format!(
+                "[Attachment: {}] ({})",
+                filename, content_type
+            ));
+        }
+
+        parts.join("\n\n")
+    }
+
     /// Effective sender: prefer `sourceNumber` (E.164), fall back to `source`.
     fn sender(envelope: &Envelope) -> Option<String> {
         envelope
@@ -224,15 +285,27 @@ impl SignalChannel {
 
         let data_msg = envelope.data_message.as_ref()?;
 
-        // Skip attachment-only messages when configured
-        if self.ignore_attachments {
-            let has_attachments = data_msg.attachments.as_ref().is_some_and(|a| !a.is_empty());
-            if has_attachments && data_msg.message.is_none() {
-                return None;
+        // Get base message text
+        let mut text = data_msg.message.as_deref().unwrap_or("").to_string();
+
+        // Process attachments if present
+        let has_attachments = data_msg.attachments.as_ref().is_some_and(|a| !a.is_empty());
+        if has_attachments && !self.ignore_attachments {
+            let attachment_text = self.process_attachments(data_msg.attachments.as_ref()?);
+            if !attachment_text.is_empty() {
+                if !text.is_empty() {
+                    text.push_str("\n\n");
+                }
+                text.push_str(&attachment_text);
             }
         }
 
-        let text = data_msg.message.as_deref().filter(|t| !t.is_empty())?;
+        // Skip if no content (neither text nor readable attachments)
+        if text.trim().is_empty() {
+            return None;
+        }
+
+        let text = text;
         let sender = Self::sender(envelope)?;
 
         if !self.is_sender_allowed(&sender) {

@@ -264,17 +264,22 @@ OAuth tokens stored in `src/store/tokens.rs` — never in logs or Telegram messa
 
 ### 5.7 Hashtag Workflow Routing (Required)
 
-When a user message contains one of these hashtags, treat it as an explicit workflow signal:
+When a user message contains one of these hashtags or trigger phrases, you MUST use the corresponding tool immediately:
 
-| Hashtag | Workflow | Primary tools |
-|---|---|---|
-| `#issue` / `#issues` / `#bug` | Create or list GitHub issues | `github_create_issue`, `github_list_issues` |
-| `#pr` / `#review` | Create PR or review an existing PR | `github_create_pr`, `github_review_pr`, `github_analyze_pr` |
-| `#feature` | Create feature issue + push to a new branch | `github_create_issue` + `github_push` (with `branch` param) |
-| `#deploy` / `#push` | Push snapshot to GitHub | `github_push` |
-| `#build` | Build in E2B sandbox | E2B tool workflow (section 5.1) |
-| `#repo` | List or inspect repositories | `github_list_repos`, `github_list_repo_files` |
-| `#read` / `#file` | Read a file from an existing repo | `github_read_file` |
+| Hashtag / Trigger | Workflow | Primary tools | Do NOT use |
+|---|---|---|---|
+| `#issue` / `#issues` / `#bug` / "create issue" / "file issue" / "report bug" | Create GitHub issue | `github_create_issue` | `glob_search`, `file_read` |
+| `#pr` / `#review` / "create PR" / "open PR" / "submit PR" | Create or review PR | `github_create_pr`, `github_review_pr` | `file_write`, `shell` |
+| `#feature` / "new feature" / "feature request" | Create feature issue | `github_create_issue` + `github_push` | `task_plan` (alone) |
+| `#deploy` / `#push` / "deploy" / "push to github" | Push code to GitHub | `github_push` | `e2b_write_file` |
+| `#build` / "build" / "compile" | Build in E2B sandbox | E2B tool workflow (section 5.1) | `shell` (local) |
+| `#repo` / "list repos" / "my repositories" | List repositories | `github_list_repos` | `http_request` |
+| `#read` / `#file` / "read file from repo" | Read repo file | `github_read_file` | `file_read` (local) |
+
+**CRITICAL RULES:**
+1. When user says "create issue" → call `github_create_issue` (NOT `glob_search` or other tools)
+2. When user says "create PR" → call `github_create_pr` (NOT `file_write` or other tools)
+3. Before any GitHub operation, call `github_connect` first to verify authentication
 
 **Extracting repo context from the message:**
 1. Look for explicit `owner/repo` pattern in the message (e.g. `myorg/myapp`)

@@ -16,6 +16,207 @@ use std::sync::Arc;
 
 const GITHUB_API_BASE: &str = "https://api.github.com";
 
+// ── Issue/PR Format Constants ──────────────────────────────────────────────────
+
+/// Valid issue title prefixes (bracketed format)
+const VALID_ISSUE_PREFIXES: &[&str] = &[
+    "[Feature]:",
+    "[Bug]:",
+    "[Chore]:",
+    "[Docs]:",
+    "[Security]:",
+    "[Refactor]:",
+    "[Test]:",
+    "[Perf]:",
+];
+
+/// Valid type labels that must be present on every issue/PR
+const VALID_TYPE_LABELS: &[&str] = &[
+    "feature", "bug", "chore", "docs", "security", "refactor", "test", "perf",
+];
+
+/// Required sections for issue body
+const REQUIRED_ISSUE_SECTIONS: &[&str] = &[
+    "## Summary",
+    "## Problem Statement",
+    "## Proposed Solution",
+    "## Non-goals / Out of Scope",
+    "## Acceptance Criteria",
+    "## Architecture Impact",
+    "## Risk and Rollback",
+    "## Breaking Change",
+    "## Data Hygiene Checks",
+];
+
+/// Required sections for PR body
+const REQUIRED_PR_SECTIONS: &[&str] = &[
+    "## Summary",
+    "## Problem",
+    "## Root Cause",
+    "## Changes",
+    "## Validation",
+    "## Scope",
+    "## Risk",
+    "## Rollback",
+];
+
+/// Validates that an issue title follows the bracketed prefix format
+fn validate_issue_title(title: &str) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Issue title is required".to_string());
+    }
+    
+    let has_valid_prefix = VALID_ISSUE_PREFIXES
+        .iter()
+        .any(|prefix| title.trim().starts_with(prefix));
+    
+    if !has_valid_prefix {
+        return Err(format!(
+            "Issue title must start with a bracketed type prefix. Valid prefixes: {}. \
+             Example: '[Feature]: Add user authentication'",
+            VALID_ISSUE_PREFIXES.join(", ")
+        ));
+    }
+    
+    Ok(())
+}
+
+/// Validates that at least one type label is present
+fn validate_labels(labels: &[String]) -> Result<(), String> {
+    if labels.is_empty() {
+        return Err(
+            "At least one label is required. Must include a type label: \
+             feature, bug, chore, docs, security, refactor, test, or perf".to_string()
+        );
+    }
+    
+    let has_type_label = labels
+        .iter()
+        .any(|label| VALID_TYPE_LABELS.contains(&label.as_str()));
+    
+    if !has_type_label {
+        return Err(format!(
+            "Must include at least one type label: {}",
+            VALID_TYPE_LABELS.join(", ")
+        ));
+    }
+    
+    Ok(())
+}
+
+/// Validates that PR title follows conventional commit format
+fn validate_pr_title(title: &str) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("PR title is required".to_string());
+    }
+    
+    // Conventional commit pattern: type(scope): description
+    let conventional_pattern = regex::Regex::new(
+        r"^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([^)]+\))?: .+"
+    ).unwrap();
+    
+    if !conventional_pattern.is_match(title.trim()) {
+        return Err(
+            "PR title must follow conventional commit format: 'type(scope): description'. \
+             Valid types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert. \
+             Example: 'feat(auth): add OAuth2 token refresh'".to_string()
+        );
+    }
+    
+    Ok(())
+}
+
+/// Checks if body contains required sections (returns missing sections)
+fn check_required_sections(body: &str, required: &[&str]) -> Vec<String> {
+    required
+        .iter()
+        .filter(|section| !body.contains(**section))
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Extract a summary from the title by removing the prefix
+fn extract_summary_from_title(title: &str) -> String {
+    // Remove bracketed prefix like "[Feature]:" or "[Bug]:"
+    let re = regex::Regex::new(r"^\[[^\]]+\]:\s*").unwrap();
+    re.replace(title, "").to_string()
+}
+
+/// Generates a full issue template from a brief summary
+fn generate_issue_template(title: &str, summary: &str) -> String {
+    format!(r#"## Summary
+{}
+
+## Problem Statement
+[Describe the current behavior, gap, or pain point. For bugs: include exact reproduction steps and error messages.]
+
+## Proposed Solution
+[For features: what the new behavior should look like. For bugs: what correct behavior looks like.]
+
+## Non-goals / Out of Scope
+- [Explicitly list what this issue will NOT address.]
+
+## Alternatives Considered
+- [Alternatives evaluated and why they were not chosen.]
+
+## Acceptance Criteria
+- [ ] [Concrete, testable condition 1]
+- [ ] [Concrete, testable condition 2]
+
+## Architecture Impact
+- Affected subsystems: [list modules, traits, tools, or channels impacted]
+- New dependencies: [none or list]
+- Config/schema changes: [yes/no — if yes, describe]
+
+## Risk and Rollback
+- Risk: [low / medium / high — and why]
+- Rollback: [how to revert if the fix or feature causes a regression]
+
+## Breaking Change?
+- [ ] Yes — describe impact and migration path
+- [ ] No
+
+## Data Hygiene Checks
+- [ ] I removed personal/sensitive data from examples, payloads, and logs.
+- [ ] I used neutral, project-focused wording and placeholders.
+"#, summary.trim())
+}
+
+/// Generates a full PR template from a brief summary
+fn generate_pr_template(title: &str, summary: &str) -> String {
+    format!(r#"## Summary
+{}
+
+## Problem
+[What broken/missing behavior or gap does this PR address?]
+
+## Root Cause
+[For bug fixes: what was the underlying cause? For features: what need or gap drove this?]
+
+## Changes
+- [Concrete change 1 — module / file / behavior]
+- [Concrete change 2]
+
+## Validation
+- [ ] `cargo fmt --all -- --check` passed
+- [ ] `cargo clippy --all-targets -- -D warnings` passed
+- [ ] `cargo test` passed
+- [ ] Manual test / scenario: [describe]
+
+## Scope
+- Affected subsystems: [list]
+- Files changed: [count or list key files]
+
+## Risk
+- Risk tier: [low / medium / high]
+- Blast radius: [which subsystems or users could be affected by a regression]
+
+## Rollback
+- Revert strategy: [`git revert <commit>` or specific steps]
+- Migration needed on rollback: [yes / no — if yes, describe]
+"#, summary.trim())
+}
+
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 /// Load the GitHub token from the local store.
@@ -226,9 +427,18 @@ impl Tool for GitHubCreateIssueTool {
     }
 
     fn description(&self) -> &str {
-        "Create a GitHub issue in a repository. \
-         The user must have connected their GitHub account first. \
-         Returns the issue number and URL."
+        "CREATE A GITHUB ISSUE - Use this when user says '#issue', '#bug', 'create issue', or wants to report a bug/request a feature. \
+         \
+         TRIGGER PHRASES: '#issue', '#bug', '#feature', 'create issue', 'file issue', 'report bug'. \
+         \
+         REQUIRED FORMAT (ENFORCED): \
+         - Title MUST start with bracketed prefix: [Feature]:, [Bug]:, [Chore]:, [Docs]:, [Security]:, [Refactor]:, [Test]:, or [Perf]: \
+         - At least one type label is REQUIRED (feature, bug, chore, docs, security, refactor, test, perf) \
+         - Body should follow the standard template with sections: Summary, Problem Statement, Proposed Solution, etc. \
+         \
+         DO NOT use this for file searches or reading code - use file_read or glob_search instead. \
+         All content MUST be in English. \
+         The user must have connected their GitHub account first."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -245,19 +455,19 @@ impl Tool for GitHubCreateIssueTool {
                 },
                 "title": {
                     "type": "string",
-                    "description": "Issue title"
+                    "description": "Issue title. MUST use format: [Feature]: ..., [Bug]: ..., [Chore]: ..., [Docs]: ..., [Security]: ..., [Refactor]: ..., [Test]: ..., [Perf]: ..."
                 },
                 "body": {
                     "type": "string",
-                    "description": "Issue body (supports Markdown)"
+                    "description": "Issue body (Markdown). Should include: ## Summary, ## Problem Statement, ## Proposed Solution, ## Non-goals / Out of Scope, ## Acceptance Criteria, ## Architecture Impact, ## Risk and Rollback, ## Breaking Change, ## Data Hygiene Checks"
                 },
                 "labels": {
                     "type": "array",
                     "items": { "type": "string" },
-                    "description": "Optional list of label names to apply"
+                    "description": "REQUIRED: At least one type label. Valid: feature, bug, chore, docs, security, refactor, test, perf"
                 }
             },
-            "required": ["repo", "title"]
+            "required": ["repo", "title", "labels"]
         })
     }
 
@@ -270,12 +480,48 @@ impl Tool for GitHubCreateIssueTool {
 
         let repo = args["repo"].as_str().unwrap_or("").trim().to_string();
         let title = args["title"].as_str().unwrap_or("").trim().to_string();
-        if repo.is_empty() || title.is_empty() {
+        
+        // Validate title format
+        if let Err(e) = validate_issue_title(&title) {
             return Ok(ToolResult {
                 success: false,
                 output: String::new(),
-                error: Some("repo and title are required".to_string()),
+                error: Some(e),
+                error_hint: Some(format!(
+                    "Valid prefixes: {}. Example: '[Feature]: Add dark mode toggle'",
+                    VALID_ISSUE_PREFIXES.join(", ")
+                )),
+            });
+        }
+        
+        if repo.is_empty() {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("repo is required".to_string()),
                 error_hint: None,
+            });
+        }
+
+        // Extract and validate labels
+        let labels: Vec<String> = args["labels"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        if let Err(e) = validate_labels(&labels) {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some(e),
+                error_hint: Some(format!(
+                    "Required type labels: {}. You may also add scope labels like: provider, channel, tool, gateway, memory, runtime, config, ci",
+                    VALID_TYPE_LABELS.join(", ")
+                )),
             });
         }
 
@@ -285,12 +531,20 @@ impl Tool for GitHubCreateIssueTool {
         };
 
         let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues");
-        let mut body = json!({ "title": title });
-        if let Some(v) = args["body"].as_str() {
-            body["body"] = json!(v);
-        }
-        if let Some(v) = args["labels"].as_array() {
-            body["labels"] = json!(v);
+        
+        // Get body - auto-generate template if missing or insufficient
+        let body_content = args["body"].as_str().unwrap_or("").trim().to_string();
+        let final_body = if body_content.is_empty() || check_required_sections(&body_content, REQUIRED_ISSUE_SECTIONS).len() > 5 {
+            // Auto-generate template from title/summary
+            let summary = extract_summary_from_title(&title);
+            generate_issue_template(&title, &summary)
+        } else {
+            body_content
+        };
+        
+        let mut body = json!({ "title": title, "body": final_body });
+        if !labels.is_empty() {
+            body["labels"] = json!(labels);
         }
 
         let result = github_post_api(&tok.token, &url, body).await?;
@@ -330,9 +584,20 @@ impl Tool for GitHubCreatePRTool {
     }
 
     fn description(&self) -> &str {
-        "Create a GitHub pull request. \
-         The user must have connected their GitHub account first. \
-         Returns the PR number and URL."
+        "CREATE A GITHUB PULL REQUEST - Use this when user says '#pr', '#pullrequest', 'create PR', or wants to submit code for review. \
+         \
+         TRIGGER PHRASES: '#pr', '#pullrequest', 'create PR', 'open PR', 'submit PR', 'make pull request'. \
+         \
+         REQUIRED FORMAT (ENFORCED): \
+         - Title MUST follow conventional commit format: 'type(scope): description' \
+           Valid types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert \
+           Example: 'feat(auth): add OAuth2 token refresh' \
+         - At least one type label is REQUIRED (feature, bug, chore, docs, security, refactor, test, perf) \
+         - Body should follow the standard template with sections: Summary, Problem, Root Cause, Changes, Validation, Scope, Risk, Rollback \
+         \
+         DO NOT use this for creating issues or general queries. \
+         All content MUST be in English. \
+         The user must have connected their GitHub account first."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -341,17 +606,17 @@ impl Tool for GitHubCreatePRTool {
             "properties": {
                 "repo": { "type": "string", "description": "Repository name" },
                 "owner": { "type": "string", "description": "Repository owner. Defaults to authenticated user." },
-                "title": { "type": "string", "description": "Pull request title" },
-                "body": { "type": "string", "description": "Pull request description (Markdown)" },
+                "title": { "type": "string", "description": "Pull request title. MUST use conventional commit format: 'type(scope): description'. Valid types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert" },
+                "body": { "type": "string", "description": "Pull request description (Markdown). Should include: ## Summary, ## Problem, ## Root Cause, ## Changes, ## Validation, ## Scope, ## Risk, ## Rollback" },
                 "head": { "type": "string", "description": "Branch to merge from" },
                 "base": { "type": "string", "description": "Branch to merge into. Default: main." },
                 "labels": {
                     "type": "array",
                     "items": { "type": "string" },
-                    "description": "Optional labels"
+                    "description": "REQUIRED: At least one type label. Valid: feature, bug, chore, docs, security, refactor, test, perf. Also recommended: size labels (size: XS/S/M/L/XL)"
                 }
             },
-            "required": ["repo", "title", "head"]
+            "required": ["repo", "title", "head", "labels"]
         })
     }
 
@@ -366,12 +631,49 @@ impl Tool for GitHubCreatePRTool {
         let title = args["title"].as_str().unwrap_or("").trim().to_string();
         let head = args["head"].as_str().unwrap_or("").trim().to_string();
 
-        if repo.is_empty() || title.is_empty() || head.is_empty() {
+        // Validate PR title format (conventional commits)
+        if let Err(e) = validate_pr_title(&title) {
             return Ok(ToolResult {
                 success: false,
                 output: String::new(),
-                error: Some("repo, title, and head are required".to_string()),
+                error: Some(e),
+                error_hint: Some(
+                    "Use format: 'type(scope): description'. \
+                     Valid types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert. \
+                     Examples: 'feat(auth): add OAuth flow', 'fix(api): resolve null pointer'".to_string()
+                ),
+            });
+        }
+
+        if repo.is_empty() || head.is_empty() {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("repo and head are required".to_string()),
                 error_hint: None,
+            });
+        }
+
+        // Extract and validate labels
+        let labels: Vec<String> = args["labels"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        if let Err(e) = validate_labels(&labels) {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some(e),
+                error_hint: Some(format!(
+                    "Required type labels: {}. \
+                     Also recommended: size labels (size: XS, size: S, size: M, size: L, size: XL)",
+                    VALID_TYPE_LABELS.join(", ")
+                )),
             });
         }
 
@@ -396,13 +698,11 @@ impl Tool for GitHubCreatePRTool {
         let pr_url = parsed["html_url"].as_str().unwrap_or("");
         let pr_num = parsed["number"].as_u64().unwrap_or(0);
 
-        // Apply labels if provided
-        if let Some(labels) = args["labels"].as_array() {
-            if !labels.is_empty() {
-                let labels_url =
-                    format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{pr_num}/labels");
-                let _ = github_post_api(&tok.token, &labels_url, json!({ "labels": labels })).await;
-            }
+        // Apply labels
+        if !labels.is_empty() {
+            let labels_url =
+                format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{pr_num}/labels");
+            let _ = github_post_api(&tok.token, &labels_url, json!({ "labels": labels })).await;
         }
 
         Ok(ToolResult {
@@ -885,7 +1185,11 @@ impl Tool for GitHubConnectTool {
     }
 
     fn description(&self) -> &str {
-        "Check GitHub connection status or get the OAuth URL to connect. \
+        "CHECK GITHUB CONNECTION STATUS - Use this FIRST before any GitHub operation (issue, PR, etc.) to verify user is authenticated. \
+         \
+         TRIGGER: 'github connect', 'check github', 'am i connected', or before any github_create_issue/github_create_pr call. \
+         \
+         If not connected, returns OAuth URL for user to authenticate. \
          ALWAYS use this when the user asks about GitHub connection or authentication."
     }
 
@@ -1098,8 +1402,14 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
     }
 
     fn description(&self) -> &str {
-        "Create a GitHub issue with auto-extracted labels from hashtags in the message. \
-         Example: '#bug Login not working' creates an issue with 'bug' label."
+        "Create a GitHub issue with auto-extracted labels from hashtags. \
+         \
+         REQUIRED FORMAT (ENFORCED): \
+         - Title MUST start with bracketed prefix: [Feature]:, [Bug]:, [Chore]:, [Docs]:, [Security]:, [Refactor]:, [Test]:, or [Perf]: \
+         - At least one hashtag type label is REQUIRED in the message (#feature, #bug, #chore, #docs, #security, #refactor, #test, #perf) \
+         \
+         Example: '#bug [Bug]: Login returns 500 error' creates an issue with 'bug' label. \
+         All content MUST be in English."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -1108,9 +1418,9 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
             "properties": {
                 "repo": { "type": "string", "description": "Repository name" },
                 "owner": { "type": "string", "description": "Repository owner. Defaults to authenticated user." },
-                "message": { "type": "string", "description": "Message with hashtag labels. Example: '#bug Login not working'" },
-                "title": { "type": "string", "description": "Optional explicit title. Extracted from message if omitted." },
-                "body": { "type": "string", "description": "Optional issue body (Markdown)" }
+                "message": { "type": "string", "description": "Message with hashtag labels. Must include at least one type hashtag: #feature, #bug, #chore, #docs, #security, #refactor, #test, #perf. Example: '#bug [Bug]: Login not working'" },
+                "title": { "type": "string", "description": "Optional explicit title. If provided, MUST use format: [Feature]: ..., [Bug]: ..., etc. Extracted from message if omitted." },
+                "body": { "type": "string", "description": "Optional issue body (Markdown). Should follow standard template with required sections." }
             },
             "required": ["repo", "message"]
         })
@@ -1138,7 +1448,22 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
             Ok(o) => o,
             Err(e) => return Ok(e),
         };
+        
         let labels = extract_hashtags(&message);
+        
+        // Validate that at least one type label is present
+        if let Err(e) = validate_labels(&labels) {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some(format!(
+                    "{}. Your message must include at least one type hashtag: #feature, #bug, #chore, #docs, #security, #refactor, #test, #perf",
+                    e
+                )),
+                error_hint: Some("Example: '#bug [Bug]: Login returns 500 error' or '#feature [Feature]: Add dark mode'".to_string()),
+            });
+        }
+        
         let title = if let Some(t) = args["title"].as_str().filter(|s| !s.is_empty()) {
             t.to_string()
         } else {
@@ -1157,12 +1482,35 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
                 error_hint: None,
             });
         }
+        
+        // Validate title format
+        if let Err(e) = validate_issue_title(&title) {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some(e),
+                error_hint: Some(format!(
+                    "Extracted title: '{}'. Valid prefixes: {}. \
+                     Example message: '#bug [Bug]: Login not working'",
+                    title,
+                    VALID_ISSUE_PREFIXES.join(", ")
+                )),
+            });
+        }
 
         let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues");
-        let mut body = json!({ "title": title });
-        if let Some(v) = args["body"].as_str() {
-            body["body"] = json!(v);
-        }
+        
+        // Get body - auto-generate template if missing or insufficient
+        let body_content = args["body"].as_str().unwrap_or("").trim().to_string();
+        let final_body = if body_content.is_empty() || check_required_sections(&body_content, REQUIRED_ISSUE_SECTIONS).len() > 5 {
+            // Auto-generate template from title
+            let summary = extract_summary_from_title(&title);
+            generate_issue_template(&title, &summary)
+        } else {
+            body_content
+        };
+        
+        let mut body = json!({ "title": title, "body": final_body });
         if !labels.is_empty() {
             body["labels"] = json!(labels);
         }
@@ -1175,11 +1523,7 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
         let parsed: serde_json::Value = serde_json::from_str(&result.output).unwrap_or_default();
         let issue_url = parsed["html_url"].as_str().unwrap_or("");
         let issue_num = parsed["number"].as_u64().unwrap_or(0);
-        let labels_str = if labels.is_empty() {
-            "no labels".to_string()
-        } else {
-            labels.join(", ")
-        };
+        let labels_str = labels.join(", ");
 
         Ok(ToolResult {
             success: true,
