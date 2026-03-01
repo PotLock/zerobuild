@@ -11,6 +11,7 @@ use crate::hardware::{self, HardwareConfig};
 use crate::memory::{
     default_memory_backend_key, memory_backend_profile, selectable_memory_backends,
 };
+use crate::store;
 use crate::providers::{
     canonical_china_provider_name, is_glm_alias, is_glm_cn_alias, is_minimax_alias,
     is_moonshot_alias, is_qianfan_alias, is_qwen_alias, is_qwen_oauth_alias, is_zai_alias,
@@ -24,8 +25,19 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs;
+use tokio::net::TcpListener;
+use tokio::sync::oneshot;
+use axum::{
+    extract::Query,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
+use axum::response::Html;
 
 // ── Project context collected during wizard ──────────────────────
 
@@ -110,7 +122,7 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
     let (composio_config, secrets_config) = setup_tool_mode()?;
 
     print_step(6, 10, "Connectors (GitHub, etc.)");
-    let zerobuild_config = setup_connectors()?;
+    let zerobuild_config = setup_connectors().await?;
 
     print_step(7, 10, "Hardware (Physical World)");
     let hardware_config = setup_hardware()?;
@@ -2819,16 +2831,16 @@ fn setup_tool_mode() -> Result<(ComposioConfig, SecretsConfig)> {
 
 // ── Step 6: Connectors (GitHub, etc.) ───────────────────────────
 
-fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
+async fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
     use crate::config::ZerobuildConfig;
-    use dialoguer::{Confirm, Input};
+    use crate::store;
 
     print_bullet("Connect external services for seamless integration.");
     print_bullet("These can also be connected later via chat.");
     println!();
 
     // Start with default config (includes OAuth Proxy URL)
-    let mut config = ZerobuildConfig::default();
+    let config = ZerobuildConfig::default();
 
     // ── GitHub Connector ──
     println!(
@@ -2846,37 +2858,28 @@ fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
         .interact()?;
 
     if connect_github {
-        println!();
-        println!(
-            "  {} {}",
-            style("📋 Instructions:").cyan().bold(),
-            style("Follow these steps to connect GitHub").dim()
-        );
-        println!();
-        println!(
-            "    {} Start ZeroBuild: {}",
-            style("1.").cyan(),
-            style("zerobuild gateway").yellow()
-        );
-        println!(
-            "    {} In your chat (Telegram/Discord/etc), say: {}",
-            style("2.").cyan(),
-            style("\"Connect GitHub\"").yellow()
-        );
-        println!(
-            "    {} Click the link and authorize on GitHub",
-            style("3.").cyan()
-        );
-        println!(
-            "    {} Done! You can now push code, create issues, etc.",
-            style("4.").cyan()
-        );
-        println!();
-        println!(
-            "  {} {}",
-            style("✓").green().bold(),
-            style("GitHub connector ready (connect via chat when ready)").green()
-        );
+        match run_github_oauth_flow(&config).await {
+            Ok(_) => {
+                println!();
+                println!(
+                    "  {} {}",
+                    style("✓").green().bold(),
+                    style("GitHub connected successfully!").green()
+                );
+            }
+            Err(e) => {
+                println!();
+                println!(
+                    "  {} {}",
+                    style("⚠").yellow().bold(),
+                    style(format!("Could not complete GitHub connection: {}", e)).yellow()
+                );
+                println!(
+                    "  {} You can connect later by saying \"Connect GitHub\" in chat",
+                    style("→").dim()
+                );
+            }
+        }
     } else {
         println!();
         println!(
@@ -2886,11 +2889,116 @@ fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
         );
     }
 
-    // Future connectors can be added here
-    // Example: GitLab, Bitbucket, Linear, etc.
-
     println!();
     Ok(config)
+}
+
+/// Run GitHub OAuth flow during onboarding
+async fn run_github_oauth_flow(config: &crate::config::ZerobuildConfig) -> Result<()> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    
+    // Find an available port
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    
+    let callback_url = format!("http://127.0.0.1:{}/callback", port);
+    let proxy_url = &config.github_oauth_proxy;
+    let auth_url = format!(
+        "{}/start?redirect_uri={}",
+        proxy_url,
+        urlencoding::encode(&callback_url)
+    );
+    
+    // Shared state
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(String, Option<String>)>>(1);
+    let server_ready = Arc::new(AtomicBool::new(false));
+    let server_ready_clone = server_ready.clone();
+    
+    // Build router
+    let app = Router::new()
+        .route("/", get(move || async move {
+            (StatusCode::FOUND, [("Location", auth_url.clone())])
+        }))
+        .route("/callback", get({
+            let tx = tx.clone();
+            move |Query(params): Query<OAuthCallbackParams>| async move {
+                if let Some(token) = params.token {
+                    let username = params.username;
+                    let _ = tx.send(Ok((token, username))).await;
+                    Html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1>✅ GitHub Connected!</h1><p>You can close this window.</p></body></html>".to_string())
+                } else if let Some(error) = params.error {
+                    let _ = tx.send(Err(anyhow::anyhow!("OAuth error: {}", error))).await;
+                    Html(format!("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1>❌ Error: {}</h1></body></html>", error))
+                } else {
+                    Html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'><h1>❌ Invalid request</h1></body></html>".to_string())
+                }
+            }
+        }));
+    
+    // Start server
+    let server_url = format!("http://127.0.0.1:{}", port);
+    let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port).parse()?;
+    
+    println!();
+    println!(
+        "  {} Starting OAuth server on port {}...",
+        style("🚀").cyan(),
+        port
+    );
+    
+    // Spawn server and wait for it to be ready
+    let server = axum::serve(tokio::net::TcpListener::bind(addr).await?, app);
+    let server_handle = tokio::spawn(async move {
+        server_ready_clone.store(true, Ordering::SeqCst);
+        server.await
+    });
+    
+    // Wait a bit for server to start
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    
+    if !server_ready.load(Ordering::SeqCst) {
+        bail!("Failed to start OAuth server");
+    }
+    
+    println!(
+        "  {} Server ready! Open: {}",
+        style("✓").green(),
+        style(&server_url).yellow().underlined()
+    );
+    println!();
+    println!(
+        "  {} Waiting for GitHub authorization (2 min timeout)...",
+        style("⏳").cyan()
+    );
+    
+    // Wait for callback or timeout
+    let result = tokio::select! {
+        Some(result) = rx.recv() => result,
+        _ = tokio::time::sleep(Duration::from_secs(120)) => {
+            server_handle.abort();
+            bail!("Timeout — no response from GitHub within 2 minutes");
+        }
+    };
+    
+    server_handle.abort();
+    
+    let (token, username) = result?;
+    
+    // Save token
+    let db_path = std::path::PathBuf::from(&config.db_path);
+    fs::create_dir_all(db_path.parent().unwrap_or(Path::new("."))).await?;
+    let conn = store::init_db(&db_path)?;
+    store::tokens::save_github_token(&conn, &token, username.as_deref())?;
+    
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct OAuthCallbackParams {
+    token: Option<String>,
+    username: Option<String>,
+    error: Option<String>,
 }
 
 // ── Step 7: Hardware (Physical World) ───────────────────────────

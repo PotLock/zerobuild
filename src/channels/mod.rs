@@ -400,6 +400,16 @@ fn channel_delivery_instructions(channel_name: &str) -> Option<&'static str> {
              - Keep normal text outside markers and never wrap markers in code fences.\n\
              - Use tool results silently: answer the latest user message directly, and do not narrate delayed/internal tool execution bookkeeping.",
         ),
+        "signal" => Some(
+            "When responding on Signal:\n\
+             - Signal ONLY supports plain text — do NOT use markdown formatting\n\
+             - Do NOT use **bold**, *italic*, `backticks`, lists (dash/bullet), or code blocks\n\
+             - Use plain text only — write naturally without any formatting markers\n\
+             - For emphasis, use CAPITALIZATION or quotes instead of markdown\n\
+             - For lists, use simple numbers like 1. 2. 3. or write as flowing text\n\
+             - Be concise and direct. Skip filler phrases like 'Great question!' or 'Certainly!'\n\
+             - Use tool results silently: answer the latest user message directly, and do not narrate delayed/internal tool execution bookkeeping.",
+        ),
         _ => None,
     }
 }

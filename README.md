@@ -151,10 +151,6 @@ Sandbox (E2B MicroVM or Docker)   ← Isolated Build Environment
 
 ZeroBuild is built on top of **[ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw)** by zeroclaw-labs — the Rust-first autonomous agent runtime optimized for performance, security, and portability.
 
-Special thanks to:
-- **E2B** — For the incredible MicroVM sandbox infrastructure
-- **ZeroClaw Labs** — For the lean, trait-driven agent runtime
-
 ---
 
 ## 📄 License

@@ -36,7 +36,7 @@ Key ZeroBuild extension points:
 
 - `src/tools/create_job.rs` — `create_job` tool (Master Agent → Orchestrator)
 - `src/tools/deploy.rs` — `request_deploy` tool (GitHub push)
-- `src/tools/github_ops.rs` — GitHub ops tools (issue, PR, review)
+- `src/tools/github_ops.rs` — GitHub ops tools (create/edit/close issue, PR, review)
 - `src/gateway/api.rs` — `/internal/notify` endpoint
 - `backend/src/services/agent.ts` — Builder Agent agentic loop
 - `backend/src/prompts/builder.md` — Builder Agent system prompt
