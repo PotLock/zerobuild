@@ -57,6 +57,13 @@ pub trait SandboxClient: Send + Sync {
     /// Return the public preview URL for a given port.
     async fn get_preview_url(&self, port: u16) -> anyhow::Result<String>;
 
+    /// Start a Cloudflare Quick Tunnel to expose a local port publicly.
+    /// Returns the public `https://xxx.trycloudflare.com` URL.
+    /// Default impl bails — only LocalProcessSandboxClient implements this.
+    async fn start_tunnel(&self, _port: u16) -> anyhow::Result<String> {
+        anyhow::bail!("Public tunnel not supported by this sandbox provider")
+    }
+
     /// Walk `workdir` (skipping build artifacts) and return a map of
     /// `path → content` for all source files.
     async fn collect_snapshot_files(

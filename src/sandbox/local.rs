@@ -18,6 +18,7 @@
 //! leaks via HOME.
 
 use super::{CommandOutput, SandboxClient};
+use anyhow::Context as _;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -36,12 +37,21 @@ const SKIP_DIRS: &[&str] = &[
     ".npm-cache",
 ];
 
+/// State for an active Cloudflare Quick Tunnel.
+struct TunnelHandle {
+    child: tokio::process::Child,
+    url: String,
+    port: u16,
+}
+
 /// Local-process sandbox client.
 ///
 /// Stores the absolute path to the active sandbox directory as its "ID".
 pub struct LocalProcessSandboxClient {
     /// Absolute path of the active sandbox directory, stored as its ID.
     sandbox_id: Arc<Mutex<Option<String>>>,
+    /// Active cloudflared tunnel process, if any.
+    tunnel_process: Arc<Mutex<Option<TunnelHandle>>>,
 }
 
 impl LocalProcessSandboxClient {
@@ -49,6 +59,7 @@ impl LocalProcessSandboxClient {
     pub fn new() -> Self {
         Self {
             sandbox_id: Arc::new(Mutex::new(None)),
+            tunnel_process: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -133,6 +144,12 @@ impl SandboxClient for LocalProcessSandboxClient {
     }
 
     async fn kill_sandbox(&self) -> anyhow::Result<String> {
+        // Kill tunnel first (take out of mutex before awaiting)
+        let tunnel_child = self.tunnel_process.lock().take().map(|h| h.child);
+        if let Some(mut child) = tunnel_child {
+            let _ = child.kill().await;
+        }
+
         let id = match self.sandbox_id.lock().clone() {
             Some(id) => id,
             None => return Ok("No active local sandbox to kill.".to_string()),
@@ -283,6 +300,52 @@ impl SandboxClient for LocalProcessSandboxClient {
         Ok(format!("http://localhost:{port}"))
     }
 
+    async fn start_tunnel(&self, port: u16) -> anyhow::Result<String> {
+        // Return cached URL if same port is already tunnelled
+        {
+            let guard = self.tunnel_process.lock();
+            if let Some(h) = &*guard {
+                if h.port == port {
+                    return Ok(h.url.clone());
+                }
+            }
+        }
+
+        let bin = find_cloudflared()?;
+        let mut child = tokio::process::Command::new(&bin)
+            .args([
+                "tunnel",
+                "--url",
+                &format!("http://localhost:{port}"),
+                "--no-autoupdate",
+            ])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .context("failed to spawn cloudflared")?;
+
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("could not capture cloudflared stderr"))?;
+
+        let url = tokio::time::timeout(
+            std::time::Duration::from_secs(45),
+            extract_tunnel_url(stderr),
+        )
+        .await
+        .context("timed out waiting for cloudflared URL (45 s)")??;
+
+        *self.tunnel_process.lock() = Some(TunnelHandle {
+            child,
+            url: url.clone(),
+            port,
+        });
+        tracing::info!("Cloudflare tunnel started: {url}");
+        Ok(url)
+    }
+
     async fn collect_snapshot_files(
         &self,
         workdir: &str,
@@ -311,6 +374,46 @@ impl SandboxClient for LocalProcessSandboxClient {
     fn clear_id(&self) {
         *self.sandbox_id.lock() = None;
     }
+}
+
+/// Locate the `cloudflared` binary: check `$PATH` first, then `~/.zerobuild/bin/`.
+fn find_cloudflared() -> anyhow::Result<String> {
+    if std::process::Command::new("cloudflared")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
+        return Ok("cloudflared".to_string());
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let p = std::path::PathBuf::from(home).join(".zerobuild/bin/cloudflared");
+        if p.exists() {
+            return Ok(p.to_string_lossy().to_string());
+        }
+    }
+    anyhow::bail!(
+        "cloudflared not found.\n\
+         Linux:  curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+         -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared\n\
+         macOS:  brew install cloudflare/cloudflare/cloudflared"
+    )
+}
+
+/// Read cloudflared stderr line-by-line until a `trycloudflare.com` URL appears.
+async fn extract_tunnel_url(stderr: tokio::process::ChildStderr) -> anyhow::Result<String> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    let mut lines = BufReader::new(stderr).lines();
+    while let Some(line) = lines.next_line().await? {
+        for word in line.split_whitespace() {
+            if word.starts_with("https://") && word.contains("trycloudflare.com") {
+                return Ok(word.to_string());
+            }
+        }
+    }
+    anyhow::bail!("cloudflared exited without providing a URL")
 }
 
 /// Recursively walk `dir`, skip [`SKIP_DIRS`], and collect readable text files

@@ -1,6 +1,6 @@
 # AGENTS.md — ZeroBuild Agent Engineering Protocol
 
-> **Forked from ZeroBuild.** ZeroBuild is a customization of the ZeroBuild agent runtime that builds web applications via Telegram using an isolated local process sandbox. This protocol extends ZeroBuild's base AGENTS.md with ZeroBuild-specific rules.
+> **Forked from ZeroBuild.** ZeroBuild is a customization of the ZeroBuild agent runtime that builds projects of any type via any configured channel using an isolated local process sandbox. This protocol extends ZeroBuild's base AGENTS.md with ZeroBuild-specific rules.
 
 This file defines the default working protocol for coding agents in this repository.
 Scope: entire repository (Rust runtime only — Node.js backend removed).
@@ -11,9 +11,19 @@ Scope: entire repository (Rust runtime only — Node.js backend removed).
 
 **ZeroBuild** is a single-tier AI agent system built on ZeroBuild:
 
-- **ZeroBuild Agent** — ZeroBuild Rust runtime. Handles Telegram conversations, proposes plans, writes code into an isolated local process sandbox, and pushes to GitHub.
+- **ZeroBuild Agent** — ZeroBuild Rust runtime. Handles user conversations over any configured channel (Telegram, Discord, Slack, and others), proposes plans, writes code into an isolated local process sandbox, and pushes to GitHub.
 
-ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized for performance, efficiency, stability, extensibility, sustainability, and security. ZeroBuild keeps all of that and adds a web-app-building product layer on top.
+ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized for performance, efficiency, stability, extensibility, sustainability, and security. ZeroBuild keeps all of that and adds a project-building product layer on top.
+
+**Project types the agent can build (non-exhaustive):**
+- Web apps / websites (Next.js, React, etc.) — have a dev server → get a preview URL
+- APIs / backend services (Node.js, Python, etc.) — no browser preview; use port/log output
+- CLI tools, scripts, libraries — no preview URL; output is build artifacts
+- Any project where the user's runtime environment provides the necessary toolchain
+
+**Preview URL rules:**
+- `sandbox_get_preview_url` and `sandbox_get_public_url` are only meaningful for projects that run an HTTP server on a port.
+- For non-web projects, skip the URL step entirely.
 
 ### Core ZeroBuild extension points (unchanged)
 
@@ -26,7 +36,7 @@ ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized
 
 ### ZeroBuild-specific extension points
 
-- `src/tools/sandbox/` — local process sandbox tools (8 tools: create, run, write, read, list, preview, snapshot, kill)
+- `src/tools/sandbox/` — local process sandbox tools (10 tools: create, run, write, read, list, preview, public-url, snapshot, restore, kill)
 - `src/tools/deploy.rs` — `request_deploy` tool (push to GitHub via REST API)
 - `src/tools/github_ops.rs` — GitHub ops tools (issue, PR, review, connect)
 - `src/gateway/oauth.rs` — GitHub OAuth flow (`/auth/github`, `/auth/github/callback`)
@@ -39,7 +49,7 @@ ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized
 ### Single-tier agent design
 
 ```
-Telegram User
+User (any configured channel: Telegram, Discord, Slack, ...)
     │
     ▼
 ZeroBuild Runtime (Rust)   ← ZeroBuild Agent
@@ -52,8 +62,10 @@ ZeroBuild Runtime (Rust)   ← ZeroBuild Agent
     ▼
 Local Process Sandbox      ← Isolated build sandbox
   • $TMPDIR/zerobuild-sandbox-{uuid}/
-  • Node.js, npm, npx available from host PATH
-  • scaffold → build → preview (http://localhost:{port})
+  • Any toolchain available from host PATH (node, python, cargo, etc.)
+  • scaffold → build → run
+  • Web projects: HTTP server on a port → preview URL available
+  • Non-web projects: no preview URL; output via stdout/artifacts
 ```
 
 ### Why single-tier
@@ -65,7 +77,7 @@ Local Process Sandbox      ← Isolated build sandbox
 
 ### Identity boundary
 
-- **User-facing name**: `ZeroBuild` — users interact with ZeroBuild via Telegram
+- **User-facing name**: `ZeroBuild` — users interact with ZeroBuild via their channel of choice
 - **Runtime engine**: ZeroBuild — internal name, never shown to users
 - **`IDENTITY.md`**: loaded by the ZeroBuild Agent to enforce this boundary
 
@@ -107,7 +119,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 - Deny-by-default for access and exposure boundaries.
 - Never log secrets, raw tokens, or sensitive payloads.
 - Sandbox uses `env_clear()` — host credentials are never visible to child processes.
-- OAuth tokens stored in SQLite only, never passed through agent chat or logs.
+- OAuth tokens stored in SQLite only, never passed through channel messages or logs.
 
 ### 3.7 Determinism + Reproducibility
 
@@ -128,7 +140,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 - `src/main.rs` — CLI entrypoint
 - `src/agent/` — orchestration loop
 - `src/providers/` — LLM providers
-- `src/tools/sandbox/` — local process sandbox tools (8 tools)
+- `src/tools/sandbox/` — local process sandbox tools (10 tools)
 - `src/tools/deploy.rs` — request_deploy tool (GitHub REST API)
 - `src/tools/github_ops.rs` — GitHub ops tools (direct GitHub API)
 - `src/gateway/oauth.rs` — GitHub OAuth handlers
@@ -137,7 +149,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
   - `src/store/session.rs` — sandbox_id tracking
   - `src/store/snapshot.rs` — project files persistence
   - `src/store/tokens.rs` — GitHub token storage
-- `src/channels/` — Telegram/Discord/Slack channels
+- `src/channels/` — channel implementations (Telegram, Discord, Slack, and others)
 - `src/security/` — policy, pairing, secret store
 - `src/config/` — schema + config loading
 - `IDENTITY.md` — ZeroBuild user-facing persona definition
@@ -148,33 +160,47 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 
 ### 5.1 Sandbox tool workflow
 
-The ZeroBuild Agent uses these 8 sandbox tools to build web apps:
+The ZeroBuild Agent uses these 10 sandbox tools to build projects:
 
 | Tool | Purpose |
 |------|---------|
 | `sandbox_create` | Create/resume local sandbox (reset=true to start fresh) |
-| `sandbox_run_command` | Run shell commands (npm, npx, node, etc.) IN SANDBOX |
+| `sandbox_run_command` | Run shell commands (npm, npx, node, cargo, python, etc.) IN SANDBOX |
 | `sandbox_write_file` | Write file content to sandbox path |
 | `sandbox_read_file` | Read file content from sandbox path |
 | `sandbox_list_files` | List directory contents |
-| `sandbox_get_preview_url` | Get preview URL for running dev server (default port 3000) |
+| `sandbox_get_preview_url` | Get localhost URL for a running HTTP server (web projects only) |
+| `sandbox_get_public_url` | Start Cloudflare Quick Tunnel → public `https://xxx.trycloudflare.com` URL (web projects, VPS/remote only) |
 | `sandbox_save_snapshot` | Extract files from sandbox to SQLite (persist project) |
-| `sandbox_kill_sandbox` | Kill sandbox when done |
+| `sandbox_restore_snapshot` | Restore files from SQLite snapshot into sandbox (use when resuming after kill) |
+| `sandbox_kill` | Kill sandbox and tunnel when done |
 
 **⚠️ CRITICAL: Use `sandbox_run_command` for ALL build operations — NEVER use `shell` tool!**
 - `shell` runs LOCALLY in workspace (not sandbox)
 - `sandbox_run_command` runs in the isolated local sandbox
 
-**Recommended build workflow:**
+**Recommended build workflow (new project):**
 1. `sandbox_create` (reset=true if user requests fresh start)
-2. `sandbox_run_command` to scaffold (`npx create-next-app`, `npm install`)
+2. `sandbox_run_command` to scaffold the project (e.g. `npx create-next-app`, `cargo new`, `npm init`)
 3. `sandbox_write_file` to create/edit files
 4. `sandbox_read_file` / `sandbox_list_files` to inspect code
-5. `sandbox_run_command` to start dev server (`npm run dev &`)
-6. **Auto-test:** Run `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` to verify the server responds with 200
-7. `sandbox_get_preview_url` (port=3000) to get preview URL
+5. `sandbox_run_command` to build or start the project
+6. **(Web projects only)** Auto-test: run `curl -s -o /dev/null -w "%{http_code}" http://localhost:{port}` to verify server responds 200
+7. **(Web projects only)** URL step — choose based on deployment context:
+   - **Local dev** (same machine): `sandbox_get_preview_url` (port=3000) → `http://localhost:{port}`
+   - **VPS / remote server**: `sandbox_get_public_url` (port=3000) → `https://xxx.trycloudflare.com`
+   - **Non-web projects**: skip this step
 8. `sandbox_save_snapshot` to persist code to SQLite
-9. Send preview URL to user
+9. Send result to user (URL for web projects, build output/artifacts for others)
+
+**Edit workflow (resuming after sandbox was killed):**
+1. `sandbox_create` (reset=false — creates fresh sandbox)
+2. `sandbox_restore_snapshot` (workdir="project") — writes all files back from SQLite
+3. `sandbox_run_command` to re-install deps (e.g. `cd project && npm install`)
+4. Apply edits via `sandbox_write_file`
+5. `sandbox_run_command` to restart server or rebuild
+6. **(Web projects only)** Get new preview URL (step 7 above)
+7. `sandbox_save_snapshot` to persist updated code
 
 **Progress reporting (REQUIRED):**
 
@@ -183,16 +209,18 @@ Before every significant tool call, the agent MUST send a short, plain-language 
 | Tool call | User message |
 |---|---|
 | `sandbox_create` | "Starting up the build environment..." |
-| `sandbox_run_command { npx create-next-app }` | "Creating your project..." |
-| `sandbox_run_command { npm install }` | "Installing dependencies..." |
-| `sandbox_run_command { npm run dev }` | "Starting the dev server..." |
+| `sandbox_run_command { scaffold }` | "Creating your project..." |
+| `sandbox_run_command { install }` | "Installing dependencies..." |
+| `sandbox_run_command { build/start }` | "Building your project..." / "Starting the server..." |
 | `sandbox_get_preview_url` | "Getting your preview link..." |
+| `sandbox_get_public_url` | "Getting your public URL..." |
+| `sandbox_restore_snapshot` | "Restoring your project files..." |
 | `github_push` | "Pushing your code to GitHub..." |
 
 **Rules:**
-- Never paste raw shell/npm output unless there is an error
+- Never paste raw shell/build output unless there is an error
 - Keep messages short (one line)
-- Use plain present-tense verbs ("Creating", "Installing", "Starting")
+- Use plain present-tense verbs ("Creating", "Installing", "Building")
 
 ### 5.2 Plan enforcement
 
@@ -205,16 +233,16 @@ Never skip the plan step. Plan-before-build is a core product guarantee.
 Agent workspace inside sandbox: `project/` (relative to sandbox root)
 
 - The sandbox root is `$TMPDIR/zerobuild-sandbox-{uuid}/`.
-- App directory: `project/` inside sandbox root (Next.js project root here).
+- Project directory: `project/` inside sandbox root.
 - All paths passed to sandbox tools are **relative to the sandbox root** — no leading `/` required.
-- `npm run build` **must** be run from the `project/` workdir.
+- Build commands **must** be run from the `project/` workdir.
 - **NEVER** use `/home/user/project` or any absolute path in tool arguments or inside shell commands — the local sandbox has no `/home/user/` directory. Use relative paths (e.g. `project/`) or `$HOME/project` which resolves to the sandbox root.
 - ✅ Correct: `workdir: "project"`, command: `cd project && npm install`
 - ❌ Wrong: `workdir: "/home/user/project"`, command: `cd /home/user/project && npm install`
 
-### 5.4 Next.js project structure
+### 5.4 Web project structure (Next.js)
 
-The ZeroBuild Agent must maintain this layout:
+When the project is a Next.js web app, maintain this layout:
 
 ```
 project/                    ← Next.js project root (package.json here)
@@ -243,22 +271,22 @@ File placement rules — no exceptions:
 
 ### 5.5 Error fixing rules
 
-When `npm run build` fails:
+When a build fails:
 
 **CORRECT procedure:**
 1. Read the exact error message
 2. Identify the specific file
 3. `sandbox_read_file` that file
 4. `sandbox_write_file` only that file with the targeted fix
-5. Re-run `npm run build` via `sandbox_run_command`
+5. Re-run the build command via `sandbox_run_command`
 
 **FORBIDDEN:**
 - `rm -rf` on any source directory (app/, components/, lib/, public/, src/)
-- Writing empty content to `app/page.tsx` or `layout.tsx`
-- Re-running `npx create-next-app` after scaffold
-- Deleting and recreating components from scratch
+- Writing empty content to entry-point files (`app/page.tsx`, `main.rs`, `index.py`, etc.)
+- Re-running scaffold commands (`npx create-next-app`, `cargo new`, etc.) after the project is already created
+- Deleting and recreating files from scratch when a targeted fix is possible
 
-**Allowed rm targets (build artifacts only):** `node_modules`, `.next`, `.cache`, `dist`, `out`, `build`
+**Allowed rm targets (build artifacts only):** `node_modules`, `.next`, `target`, `.cache`, `dist`, `out`, `build`
 
 ### 5.6 GitHub OAuth deploy flow
 
@@ -269,7 +297,7 @@ When `npm run build` fails:
 5. `github_push` reads token from SQLite, creates/updates repo via GitHub git trees API
 6. Returns repo URL + branch + commit SHA to user
 
-OAuth tokens stored in `src/store/tokens.rs` — never in logs or Telegram messages.
+OAuth tokens stored in `src/store/tokens.rs` — never in logs or channel messages.
 
 ### 5.7 Hashtag Workflow Routing (Required)
 
@@ -289,7 +317,7 @@ When a user message contains one of these hashtags or trigger phrases, you MUST 
 1. When user says "create issue" → call `github_create_issue` (NOT `glob_search` or other tools)
 2. When user says "create PR" → call `github_create_pr` (NOT `file_write` or other tools)
 3. Before any GitHub operation, call `github_connect` first to verify authentication
-4. **NEVER use `shell` tool for npm/npx/node commands** — use `sandbox_run_command` instead
+4. **NEVER use `shell` tool for build commands** — use `sandbox_run_command` instead
    - `shell` runs LOCALLY (wrong place for builds)
    - `sandbox_run_command` runs in the isolated sandbox (correct place for builds)
 
@@ -309,7 +337,7 @@ When a user message has **no hashtag**, infer intent from content:
 
 | Message content pattern | Inferred workflow |
 |---|---|
-| Describes a new app, website, tool, or page to build | Sandbox build workflow (section 5.1) |
+| Describes a new project, app, tool, script, or service to build | Sandbox build workflow (section 5.1) |
 | References an existing GitHub repo, issue number, or PR number | GitHub ops workflow — call the relevant tool |
 | Contains a GitHub URL (github.com/...) | Parse context from URL → call the relevant tool |
 | Asks a question about an existing project | Answer directly; do not start building |
@@ -317,7 +345,7 @@ When a user message has **no hashtag**, infer intent from content:
 
 **Do not ask multiple clarifying questions.** One question, wait for answer, then proceed.
 
-### 5.7 Config fields
+### 5.9 Config fields
 
 ZeroBuild-specific fields in `ZerobuildConfig`:
 
@@ -328,7 +356,7 @@ ZeroBuild-specific fields in `ZerobuildConfig`:
 | `github_oauth_proxy` | official proxy URL | OAuth proxy for GitHub connector |
 | `db_path` | `"~/.zerobuild/zerobuild.db"` | SQLite database path |
 
-### 5.9 GitHub Ops Language and Content Rules (Required)
+### 5.10 GitHub Ops Language and Content Rules (Required)
 
 **ALL GitHub issues and pull requests MUST be written in English — no exceptions.**
 
@@ -338,7 +366,7 @@ This applies to:
 - Review comments
 - Close/edit comments
 
-Even if the user writes their request in another language, the agent MUST translate the content into English before calling any GitHub tool. Do not pass Vietnamese, Chinese, or any non-English content to `github_create_issue`, `github_create_pr`, `github_edit_issue`, or any review tool.
+Even if the user writes their request in another language, the agent MUST translate the content into English before calling any GitHub tool.
 
 **Issue title format:**
 Use a bracketed type prefix: `[Feature]: ...`, `[Bug]: ...`, `[Chore]: ...`, `[Docs]: ...`
@@ -353,7 +381,7 @@ Use a bracketed type prefix: `[Feature]: ...`, `[Bug]: ...`, `[Chore]: ...`, `[D
 - `422` → labels do not exist in the repo (remove labels and retry without them)
 - `503` → transient GitHub error or org-level access control block — retry once, then report the error URL to the user
 
-### 5.10 Auto-Invoke Product Advisor After Deploy
+### 5.11 Auto-Invoke Product Advisor After Deploy
 
 After every successful `github_push`, the agent MUST automatically call `product_advisor` with the active project context to generate improvement suggestions.
 
@@ -368,23 +396,23 @@ After every successful `github_push`, the agent MUST automatically call `product
    ```
    💡 IMPROVEMENT SUGGESTIONS — [Project Name]
    ═══════════════════════════════════════════
-   
+
    🔴 HIGH PRIORITY:
       • [recommendation 1]
       • [recommendation 2]
-   
+
    🟡 MEDIUM PRIORITY:
       • [recommendation 3]
-   
+
    🔵 LONG-TERM:
       • [recommendation 4]
-   
+
    Which improvement would you like to start with?
    ```
 
 This closes the loop — every completed deploy ends with actionable next steps.
 
-### 5.11 Error Recovery and Failure Escalation
+### 5.12 Error Recovery and Failure Escalation
 
 **Error classification:** When a tool fails, classify the error from `ToolResult`:
 
@@ -435,7 +463,7 @@ This prevents silent infinite retry loops and gives users a way to intervene.
 ### 7.3 Architecture Boundary Contract (Required)
 
 - Sandbox runs as a local process with `env_clear()` — no host credentials leak into builds.
-- OAuth tokens must never appear in logs, Telegram messages, or agent tool results.
+- OAuth tokens must never appear in logs, channel messages, or agent tool results.
 - GitHub API calls must use token loaded from `src/store/tokens.rs` — never hardcoded.
 
 ---
@@ -463,7 +491,7 @@ cargo test
 ### 9.1 Privacy/Sensitive Data (Required)
 
 - Never commit API keys, bot tokens, OAuth secrets, or user IDs.
-- Never log user messages, Telegram IDs, prompt content, or OAuth tokens in production.
+- Never log user messages, channel user IDs, prompt content, or OAuth tokens in production.
 - Use neutral project-scoped placeholders in tests and examples.
 
 ---
@@ -479,9 +507,10 @@ cargo test
 - Do not hide behavior-changing side effects in refactor commits.
 - Do not include personal identity or sensitive information in any commit.
 - **ZeroBuild-specific**: Do not skip plan confirmation before building.
-- **ZeroBuild-specific**: Do not expose OAuth tokens in tool results or Telegram messages.
+- **ZeroBuild-specific**: Do not expose OAuth tokens in tool results or channel messages.
 - **ZeroBuild-specific**: Do not allow the agent to delete source files or directories when fixing build errors.
-- **ZeroBuild-specific**: Do not re-scaffold (`npx create-next-app`) after the project is already built.
+- **ZeroBuild-specific**: Do not re-scaffold a project (e.g. `npx create-next-app`, `cargo new`) after it is already created.
+- **ZeroBuild-specific**: Do not call preview URL tools (`sandbox_get_preview_url`, `sandbox_get_public_url`) for non-web projects.
 
 ---
 

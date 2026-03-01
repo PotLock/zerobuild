@@ -5,10 +5,10 @@ Scope: entire repository.
 
 ## 1) Project Snapshot (Read First)
 
-**This repository is ZeroBuild** — a Telegram-native web application builder forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
+**This repository is ZeroBuild** — a multi-channel project builder forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
 
 **ZeroBuild** is a single-tier AI agent system:
-- **ZeroBuild Agent** (Rust / ZeroBuild runtime) — handles Telegram conversations, proposes plans, builds Next.js web apps in isolated local sandboxes, calls GitHub ops tools, and pushes to GitHub
+- **ZeroBuild Agent** (Rust / ZeroBuild runtime) — handles user conversations over any configured channel (Telegram, Discord, Slack, and others), proposes plans, builds projects of any type in isolated local sandboxes, calls GitHub ops tools, and pushes to GitHub. Web projects additionally get a preview URL; non-web projects deliver build artifacts or output.
 
 **ZeroBuild** (the underlying runtime) is a Rust-first autonomous agent runtime optimized for:
 
@@ -33,7 +33,7 @@ Key ZeroBuild extension points:
 
 Key ZeroBuild extension points:
 
-- `src/tools/sandbox/` — sandbox tools (create, run, write, read, list, preview, snapshot, kill)
+- `src/tools/sandbox/` — sandbox tools (create, run, write, read, list, preview, public-url, snapshot, restore, kill)
 - `src/tools/deploy.rs` — `request_deploy` tool (GitHub push)
 - `src/tools/github_ops.rs` — GitHub ops tools (create/edit/close issue, PR, review)
 - `src/gateway/api.rs` — `/internal/notify` endpoint
@@ -156,7 +156,7 @@ Required:
 - `src/security/` — policy, pairing, secret store
 - `src/memory/` — markdown/sqlite memory backends + embeddings/vector merge
 - `src/providers/` — model providers and resilient wrapper
-- `src/channels/` — Telegram/Discord/Slack/etc channels
+- `src/channels/` — channel implementations (Telegram, Discord, Slack, and others via `Channel` trait)
 - `src/tools/` — tool execution surface (shell, file, memory, browser, zerobuild_*)
 - `src/peripherals/` — hardware peripherals (STM32, RPi GPIO); see `docs/hardware-peripherals-design.md`
 - `src/runtime/` — runtime adapters (currently native)
@@ -167,7 +167,7 @@ Required:
 ### Key ZeroBuild Agent modules
 
 - `src/agent/` — orchestration loop
-- `src/tools/sandbox/` — sandbox tools (create, run, write, read, list, preview, snapshot, kill)
+- `src/tools/sandbox/` — sandbox tools (create, run, write, read, list, preview, public-url, snapshot, restore, kill)
 - `src/tools/deploy.rs` — `request_deploy` tool (GitHub push via git trees API)
 - `src/tools/github_ops.rs` — GitHub ops tools
 - `src/gateway/oauth.rs` — GitHub OAuth handlers

@@ -104,8 +104,9 @@ pub use product_advisor::ProductAdvisorTool;
 pub use proxy_config::ProxyConfigTool;
 pub use pushover::PushoverTool;
 pub use sandbox::{
-    SandboxCreateTool, SandboxGetPreviewUrlTool, SandboxKillTool, SandboxListFilesTool,
-    SandboxReadFileTool, SandboxRunCommandTool, SandboxSaveSnapshotTool, SandboxWriteFileTool,
+    SandboxCreateTool, SandboxGetPreviewUrlTool, SandboxGetPublicUrlTool, SandboxKillTool,
+    SandboxListFilesTool, SandboxReadFileTool, SandboxRestoreSnapshotTool, SandboxRunCommandTool,
+    SandboxSaveSnapshotTool, SandboxWriteFileTool,
 };
 pub use schedule::ScheduleTool;
 #[allow(unused_imports)]
@@ -217,7 +218,12 @@ pub fn sandbox_tools(
         Box::new(SandboxReadFileTool::new(sandbox.clone())),
         Box::new(SandboxListFilesTool::new(sandbox.clone())),
         Box::new(SandboxGetPreviewUrlTool::new(sandbox.clone())),
+        Box::new(SandboxGetPublicUrlTool::new(sandbox.clone())),
         Box::new(SandboxSaveSnapshotTool::new(
+            sandbox.clone(),
+            db_path.clone(),
+        )),
+        Box::new(SandboxRestoreSnapshotTool::new(
             sandbox.clone(),
             db_path.clone(),
         )),
