@@ -1,4 +1,4 @@
-//! Sandbox tools for the ZeroBuild Master Agent.
+//! Sandbox tools for the ZeroBuild Agent.
 //!
 //! Provides 8 provider-agnostic tools that work with both E2B cloud sandboxes
 //! and local Docker containers. The tools are thin delegators to the

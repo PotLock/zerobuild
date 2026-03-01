@@ -1,4 +1,4 @@
-//! Think tool — allows Master Agent to reason through complex problems step by step.
+//! Think tool — allows ZeroBuild Agent to reason through complex problems step by step.
 //!
 //! This tool enables structured thinking for the agent, helping it work through
 //! complex planning, debugging, or decision-making tasks before taking action.

@@ -118,6 +118,40 @@ async fn github_post_api(
     })
 }
 
+/// PATCH a GitHub API endpoint and return the response body as ToolResult.
+async fn github_patch_api(
+    token: &str,
+    url: &str,
+    body: serde_json::Value,
+) -> anyhow::Result<ToolResult> {
+    let client = gh_client()?;
+    let resp = client
+        .patch(url)
+        .header("Authorization", format!("Bearer {token}"))
+        .header("Accept", "application/vnd.github+json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("GitHub API request failed: {e}"))?;
+
+    let status = resp.status();
+    let resp_body = resp.text().await.unwrap_or_else(|_| "<unreadable>".to_string());
+
+    if !status.is_success() {
+        return Ok(ToolResult {
+            success: false,
+            output: String::new(),
+            error: Some(format!("GitHub API returned {status}: {resp_body}")),
+        });
+    }
+
+    Ok(ToolResult {
+        success: true,
+        output: resp_body,
+        error: None,
+    })
+}
+
 /// Resolve the `owner` field: use provided value or fall back to stored username.
 fn resolve_owner(
     args: &serde_json::Value,
@@ -1159,6 +1193,249 @@ impl Tool for GitHubUploadImageTool {
         Ok(ToolResult {
             success: true,
             output: format!("Image uploaded: {link}\nMarkdown: {markdown}"),
+            error: None,
+        })
+    }
+}
+
+// ── github_edit_issue ──────────────────────────────────────────────────────────
+
+pub struct GitHubEditIssueTool {
+    config: Arc<ZerobuildConfig>,
+}
+
+impl GitHubEditIssueTool {
+    pub fn new(config: Arc<ZerobuildConfig>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for GitHubEditIssueTool {
+    fn name(&self) -> &str {
+        "github_edit_issue"
+    }
+
+    fn description(&self) -> &str {
+        "Edit an existing GitHub issue: update its title, body, labels, or state. \
+         Use this to correct issues after creation rather than closing and recreating them. \
+         All issue content must be written in English."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository name (e.g. my-app)"
+                },
+                "owner": {
+                    "type": "string",
+                    "description": "Repository owner (GitHub username or org). Defaults to the authenticated user."
+                },
+                "issue_number": {
+                    "type": "integer",
+                    "description": "Issue number to edit"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "New issue title. Must use format: [Feature]: ..., [Bug]: ..., [Chore]: ..., [Docs]: ..., etc."
+                },
+                "body": {
+                    "type": "string",
+                    "description": "New issue body (Markdown). Must follow the standard issue template."
+                },
+                "labels": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Replacement label list to apply to the issue"
+                },
+                "state": {
+                    "type": "string",
+                    "enum": ["open", "closed"],
+                    "description": "New state for the issue: open or closed"
+                }
+            },
+            "required": ["repo", "issue_number"]
+        })
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let db_path = PathBuf::from(&self.config.db_path);
+        let tok = match load_token(&db_path) {
+            Ok(t) => t,
+            Err(e) => return Ok(e),
+        };
+
+        let repo = args["repo"].as_str().unwrap_or("").trim().to_string();
+        let issue_number = match args["issue_number"].as_u64() {
+            Some(n) => n,
+            None => return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("issue_number is required".to_string()),
+            }),
+        };
+        if repo.is_empty() {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("repo is required".to_string()),
+            });
+        }
+
+        let owner = match resolve_owner(&args, tok.username.as_deref()) {
+            Ok(o) => o,
+            Err(e) => return Ok(e),
+        };
+
+        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}");
+        let mut patch = json!({});
+        if let Some(v) = args["title"].as_str() { patch["title"] = json!(v); }
+        if let Some(v) = args["body"].as_str() { patch["body"] = json!(v); }
+        if let Some(v) = args["labels"].as_array() { patch["labels"] = json!(v); }
+        if let Some(v) = args["state"].as_str() { patch["state"] = json!(v); }
+
+        let result = github_patch_api(&tok.token, &url, patch).await?;
+        if !result.success {
+            return Ok(result);
+        }
+
+        let parsed: serde_json::Value = serde_json::from_str(&result.output).unwrap_or_default();
+        let issue_url = parsed["html_url"].as_str().unwrap_or("");
+
+        Ok(ToolResult {
+            success: true,
+            output: format!("Issue #{issue_number} updated: {issue_url}"),
+            error: None,
+        })
+    }
+}
+
+// ── github_close_issue ─────────────────────────────────────────────────────────
+
+pub struct GitHubCloseIssueTool {
+    config: Arc<ZerobuildConfig>,
+}
+
+impl GitHubCloseIssueTool {
+    pub fn new(config: Arc<ZerobuildConfig>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for GitHubCloseIssueTool {
+    fn name(&self) -> &str {
+        "github_close_issue"
+    }
+
+    fn description(&self) -> &str {
+        "Close a GitHub issue and post a resolution comment explaining the outcome \
+         (fixed, won't fix, duplicate, etc.). \
+         All comments must be written in English."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository name (e.g. my-app)"
+                },
+                "owner": {
+                    "type": "string",
+                    "description": "Repository owner (GitHub username or org). Defaults to the authenticated user."
+                },
+                "issue_number": {
+                    "type": "integer",
+                    "description": "Issue number to close"
+                },
+                "reason": {
+                    "type": "string",
+                    "enum": ["completed", "not_planned"],
+                    "description": "Reason for closing: 'completed' (fixed/done) or 'not_planned' (won't fix / out of scope)"
+                },
+                "comment": {
+                    "type": "string",
+                    "description": "Resolution comment to post before closing. Required. Explain outcome clearly in English (e.g. 'Fixed in #42', 'Duplicate of #10', 'Out of scope — see discussion')."
+                }
+            },
+            "required": ["repo", "issue_number", "comment"]
+        })
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let db_path = PathBuf::from(&self.config.db_path);
+        let tok = match load_token(&db_path) {
+            Ok(t) => t,
+            Err(e) => return Ok(e),
+        };
+
+        let repo = args["repo"].as_str().unwrap_or("").trim().to_string();
+        let issue_number = match args["issue_number"].as_u64() {
+            Some(n) => n,
+            None => return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("issue_number is required".to_string()),
+            }),
+        };
+        let comment = args["comment"].as_str().unwrap_or("").trim().to_string();
+        if repo.is_empty() {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("repo is required".to_string()),
+            });
+        }
+        if comment.is_empty() {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some("comment is required — explain the resolution in English".to_string()),
+            });
+        }
+
+        let owner = match resolve_owner(&args, tok.username.as_deref()) {
+            Ok(o) => o,
+            Err(e) => return Ok(e),
+        };
+
+        // 1. Post the resolution comment first.
+        let comment_url = format!(
+            "{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/comments"
+        );
+        let comment_result = github_post_api(
+            &tok.token,
+            &comment_url,
+            json!({ "body": comment }),
+        )
+        .await?;
+        if !comment_result.success {
+            return Ok(comment_result);
+        }
+
+        // 2. Close the issue via PATCH.
+        let issue_url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}");
+        let mut patch = json!({ "state": "closed" });
+        if let Some(reason) = args["reason"].as_str() {
+            patch["state_reason"] = json!(reason);
+        }
+        let close_result = github_patch_api(&tok.token, &issue_url, patch).await?;
+        if !close_result.success {
+            return Ok(close_result);
+        }
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&close_result.output).unwrap_or_default();
+        let html_url = parsed["html_url"].as_str().unwrap_or("");
+
+        Ok(ToolResult {
+            success: true,
+            output: format!("Issue #{issue_number} closed: {html_url}"),
             error: None,
         })
     }

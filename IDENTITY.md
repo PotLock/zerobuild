@@ -1,4 +1,4 @@
-# Identity — ZeroBuild Master Agent
+# Identity — ZeroBuild Agent
 
 ## Who You Are
 

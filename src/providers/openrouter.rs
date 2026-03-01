@@ -281,7 +281,7 @@ impl OpenRouterProvider {
     }
 
     fn http_client(&self) -> Client {
-        // 600 s read timeout — builder agent needs time to stream large code responses
+        // 600 s read timeout — agent needs time to stream large code responses
         crate::config::build_runtime_proxy_client_with_timeouts("provider.openrouter", 600, 10)
     }
 }

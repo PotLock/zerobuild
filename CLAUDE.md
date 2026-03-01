@@ -7,9 +7,8 @@ Scope: entire repository.
 
 **This repository is ZeroBuild** — a Telegram-native web application builder forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
 
-**ZeroBuild** is a two-tier AI agent system:
-- **Master Agent** (Rust / ZeroBuild runtime) — handles Telegram conversations, proposes plans, calls `create_job` / GitHub ops tools
-- **Builder Agent** (Node.js / E2B MicroVM) — scaffolds and builds Next.js web apps, returns preview URL
+**ZeroBuild** is a single-tier AI agent system:
+- **ZeroBuild Agent** (Rust / ZeroBuild runtime) — handles Telegram conversations, proposes plans, builds Next.js web apps directly in E2B sandboxes, calls GitHub ops tools, and pushes to GitHub
 
 **ZeroBuild** (the underlying runtime) is a Rust-first autonomous agent runtime optimized for:
 
@@ -34,14 +33,12 @@ Key ZeroBuild extension points:
 
 Key ZeroBuild extension points:
 
-- `src/tools/create_job.rs` — `create_job` tool (Master Agent → Orchestrator)
+- `src/tools/create_job.rs` — `create_job` tool (agent → E2B sandbox)
 - `src/tools/deploy.rs` — `request_deploy` tool (GitHub push)
 - `src/tools/github_ops.rs` — GitHub ops tools (create/edit/close issue, PR, review)
 - `src/gateway/api.rs` — `/internal/notify` endpoint
-- `backend/src/services/agent.ts` — Builder Agent agentic loop
-- `backend/src/prompts/builder.md` — Builder Agent system prompt
-- `backend/src/routes/auth.ts` — GitHub OAuth endpoints
-- `backend/src/routes/github.ts` — GitHub ops endpoints
+- `src/gateway/oauth.rs` — GitHub OAuth flow
+- `IDENTITY.md` — ZeroBuild user-facing persona definition
 
 ## 2) Deep Architecture Observations (Why This Protocol Exists)
 
@@ -149,7 +146,7 @@ Required:
 
 ## 4) Repository Map (High-Level)
 
-### Rust (ZeroBuild runtime / Master Agent)
+### Rust (ZeroBuild Agent runtime)
 
 - `src/main.rs` — CLI entrypoint and command routing
 - `src/lib.rs` — module exports and shared command enums
@@ -167,18 +164,14 @@ Required:
 - `.github/` — CI, templates, automation workflows
 - `IDENTITY.md` — ZeroBuild user-facing persona
 
-### Node.js Backend (ZeroBuild Orchestrator + Builder Agent)
+### Key ZeroBuild Agent modules
 
-- `backend/src/services/agent.ts` — Builder Agent agentic loop
-- `backend/src/services/builder.ts` — job runner, reset guard, Telegram notifications
-- `backend/src/services/e2bService.ts` — E2B sandbox lifecycle
-- `backend/src/services/githubService.ts` — GitHub REST API
-- `backend/src/prompts/builder.md` — Builder Agent system prompt
-- `backend/src/db/` — SQLite job/token repository
-- `backend/src/routes/jobs.ts` — job CRUD endpoints
-- `backend/src/routes/auth.ts` — GitHub OAuth (public)
-- `backend/src/routes/github.ts` — GitHub ops (protected)
-- `backend/src/types/` — TypeScript types
+- `src/agent/` — orchestration loop
+- `src/tools/e2b/` — E2B sandbox tools (create, run, write, read, list, preview, snapshot, kill)
+- `src/tools/deploy.rs` — `request_deploy` tool (GitHub push via git trees API)
+- `src/tools/github_ops.rs` — GitHub ops tools
+- `src/gateway/oauth.rs` — GitHub OAuth handlers
+- `src/store/` — SQLite persistence (sandbox session, project snapshots, GitHub token)
 
 ## 4.1 Documentation System Contract (Required)
 
@@ -381,6 +374,120 @@ If full checks are impractical, run the most relevant subset and document what w
 - Use conventional commit titles.
 - Prefer small PRs (`size: XS/S/M`) when possible.
 - Agent-assisted PRs are welcome, **but contributors remain accountable for understanding what their code will do**.
+
+### 9.0 GitHub Ops Language, Title Format, and Label Contract (Required)
+
+These rules apply to every issue and pull request created, edited, or managed by the agent or contributors.
+
+**Language:**
+
+- All issues and pull requests MUST be written in English. This applies to titles, bodies, comments, and review feedback — no exceptions regardless of the user's language of instruction.
+
+**Issue title format:**
+
+- Use a bracketed type prefix: `[Feature]: <title>`, `[Bug]: <title>`, `[Chore]: <title>`, `[Docs]: <title>`, `[Security]: <title>`, `[Refactor]: <title>`, `[Test]: <title>`, `[Perf]: <title>`.
+- Do NOT use wordy forms like "Feature Request: …" or "Bug Report: …". Use the bracketed prefix only.
+- Keep titles concise, specific, and system-focused (no first-person or vague language).
+
+**Labels (Required for every issue and PR):**
+
+- Every issue must have at least one type label: `feature`, `bug`, `chore`, `docs`, `security`, `refactor`, `test`, or `perf`.
+- Every PR must have at least one type label and optionally a scope label: `provider`, `channel`, `tool`, `gateway`, `memory`, `runtime`, `config`, `ci`, `peripheral`.
+- Size labels (`size: XS`, `size: S`, `size: M`, `size: L`, `size: XL`) are required for PRs.
+- Add `breaking-change` label when the change breaks a public API, config contract, or user-facing behavior.
+- Add `needs-review` or `blocked` labels when appropriate.
+- Agent must apply labels at creation time; do not open unlabeled issues or PRs.
+
+**GitHub ops tool scope:**
+
+- `github_ops.rs` supports: create issue, edit issue, close issue, create PR, review PR.
+- Use edit-issue to update title, body, or labels after creation (do not close and recreate).
+- Use close-issue with a resolution comment explaining outcome (fixed, won't fix, duplicate).
+
+### 9.5 Issue Template (Required)
+
+All issues must follow this structure. Fill every section; remove sections only if genuinely not applicable and note why inline.
+
+```md
+## Summary
+<One paragraph: what this issue is about and why it matters.>
+
+## Problem Statement
+<Describe the current behavior, gap, or pain point. Be specific; include repro steps for bugs.>
+
+## Proposed Solution
+<Describe the intended outcome. For features: what it should do. For bugs: what correct behavior looks like.>
+
+## Non-goals / Out of Scope
+- <Explicitly list what this issue will NOT address.>
+
+## Alternatives Considered
+- <List alternatives evaluated and why they were not chosen.>
+
+## Acceptance Criteria
+- [ ] <Concrete, testable condition 1>
+- [ ] <Concrete, testable condition 2>
+
+## Architecture Impact
+- Affected subsystems: <list modules/traits/tools/channels impacted>
+- New dependencies: <none or list>
+- Config/schema changes: <yes/no — if yes, describe>
+
+## Risk and Rollback
+- Risk: <low/medium/high and why>
+- Rollback: <how to revert if the fix/feature causes regression>
+
+## Breaking Change?
+- [ ] Yes — describe impact and migration path
+- [ ] No
+
+## Data Hygiene Checks
+- [ ] I removed personal/sensitive data from examples, payloads, and logs.
+- [ ] I used neutral, project-focused wording and placeholders.
+```
+
+### 9.6 Pull Request Template (Required)
+
+All PRs must follow this structure. Keep each section factual and concise.
+
+```md
+## Summary
+<One paragraph: what this PR does and why.>
+
+## Problem
+<What broken/missing behavior or gap does this PR address?>
+
+## Root Cause
+<For bug fixes: what was the underlying cause? For features: what need/gap drove this?>
+
+## Changes
+- <Bullet list of concrete changes: files, modules, behaviors modified.>
+
+## Validation
+- [ ] `cargo fmt --all -- --check` passed
+- [ ] `cargo clippy --all-targets -- -D warnings` passed
+- [ ] `cargo test` passed
+- [ ] Manual test / scenario: <describe>
+- [ ] Docker CI (`./dev/ci.sh all`) run: <yes/no/skipped — if skipped, explain>
+
+## Automation / Workflow Notes
+<Any CI/CD, workflow, label-routing, or automation changes introduced or affected by this PR.>
+
+## Scope
+- Affected subsystems: <list>
+- Files changed: <count or list key files>
+
+## Non-goals
+- <Explicitly list what this PR does NOT change.>
+
+## Risk
+- Risk tier: <low/medium/high>
+- Blast radius: <which subsystems or users could be affected by a regression>
+
+## Rollback
+- Revert strategy: <e.g., `git revert <commit>` or specific steps>
+- Any migration needed on rollback: <yes/no — if yes, describe>
+```
 
 ### 9.1 Privacy/Sensitive Data and Neutral Wording (Required)
 

@@ -14,6 +14,7 @@
 //! To add a new channel, implement [`Channel`] in a new submodule and wire it into
 //! [`start_channels`]. See `AGENTS.md` §7.2 for the full change playbook.
 
+pub mod bluebubbles;
 pub mod clawdtalk;
 pub mod cli;
 pub mod dingtalk;
@@ -28,6 +29,8 @@ pub mod linq;
 pub mod matrix;
 pub mod mattermost;
 pub mod nextcloud_talk;
+pub mod github;
+pub mod napcat;
 pub mod nostr;
 pub mod qq;
 pub mod signal;
@@ -41,10 +44,13 @@ pub mod whatsapp_storage;
 #[cfg(feature = "whatsapp-web")]
 pub mod whatsapp_web;
 
+pub use bluebubbles::BlueBubblesChannel;
 pub use clawdtalk::{ClawdTalkChannel};
 pub use cli::CliChannel;
 pub use dingtalk::DingTalkChannel;
 pub use discord::DiscordChannel;
+pub use github::GitHubChannel;
+pub use napcat::NapcatChannel;
 pub use email_channel::EmailChannel;
 pub use imessage::IMessageChannel;
 pub use irc::IrcChannel;
@@ -2901,6 +2907,39 @@ fn collect_configured_channels(
             display_name: "ClawdTalk",
             channel: Arc::new(ClawdTalkChannel::new(ct.clone())),
         });
+    }
+
+    if let Some(ref gh) = config.channels_config.github {
+        channels.push(ConfiguredChannel {
+            display_name: "GitHub",
+            channel: Arc::new(GitHubChannel::new(
+                gh.access_token.clone(),
+                gh.api_base_url.clone(),
+                gh.allowed_repos.clone(),
+            )),
+        });
+    }
+
+    if let Some(ref bb) = config.channels_config.bluebubbles {
+        channels.push(ConfiguredChannel {
+            display_name: "BlueBubbles",
+            channel: Arc::new(BlueBubblesChannel::new(
+                bb.server_url.clone(),
+                bb.password.clone(),
+                bb.allowed_senders.clone(),
+                bb.ignore_senders.clone(),
+            )),
+        });
+    }
+
+    if let Some(ref napcat_cfg) = config.channels_config.napcat {
+        match NapcatChannel::from_config(napcat_cfg.clone()) {
+            Ok(channel) => channels.push(ConfiguredChannel {
+                display_name: "Napcat",
+                channel: Arc::new(channel),
+            }),
+            Err(err) => tracing::warn!("Napcat channel configuration invalid: {err}"),
+        }
     }
 
     channels

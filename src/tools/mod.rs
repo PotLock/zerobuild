@@ -50,6 +50,11 @@ pub mod screenshot;
 pub mod shell;
 pub mod traits;
 pub mod web_search_tool;
+pub mod auth_profile;
+pub mod bg_run;
+pub mod memory_observe;
+pub mod pptx_read;
+pub mod xlsx_read;
 pub mod github_push;
 pub mod github_ops;
 
@@ -95,13 +100,20 @@ pub use shell::ShellTool;
 pub use traits::Tool;
 #[allow(unused_imports)]
 pub use traits::{ToolResult, ToolSpec};
+pub use auth_profile::ManageAuthProfileTool;
+pub use bg_run::{
+    format_bg_result_for_injection, BgJob, BgJobStatus, BgJobStore, BgRunTool, BgStatusTool,
+};
+pub use memory_observe::MemoryObserveTool;
+pub use pptx_read::PptxReadTool;
+pub use xlsx_read::XlsxReadTool;
 pub use web_search_tool::WebSearchTool;
 pub use github_push::GitHubPushTool;
 pub use github_ops::{
-    GitHubAnalyzePRTool, GitHubConnectTool, GitHubCreateIssueTool, GitHubCreateIssueWithHashtagsTool,
-    GitHubCreatePRTool, GitHubGetIssueTool, GitHubGetPRTool, GitHubListIssuesTool,
-    GitHubListPRsTool, GitHubListReposTool, GitHubReviewPRTool, GitHubReviewPRWithChecklistTool,
-    GitHubUploadImageTool,
+    GitHubAnalyzePRTool, GitHubCloseIssueTool, GitHubConnectTool, GitHubCreateIssueTool,
+    GitHubCreateIssueWithHashtagsTool, GitHubCreatePRTool, GitHubEditIssueTool, GitHubGetIssueTool,
+    GitHubGetPRTool, GitHubListIssuesTool, GitHubListPRsTool, GitHubListReposTool,
+    GitHubReviewPRTool, GitHubReviewPRWithChecklistTool, GitHubUploadImageTool,
 };
 
 use crate::config::{Config, DelegateAgentConfig};
@@ -144,6 +156,22 @@ impl Tool for ArcDelegatingTool {
 
 fn boxed_registry_from_arcs(tools: Vec<Arc<dyn Tool>>) -> Vec<Box<dyn Tool>> {
     tools.into_iter().map(ArcDelegatingTool::boxed).collect()
+}
+
+/// Wrap a tool registry with background execution tools (`bg_run` + `bg_status`).
+pub fn add_bg_tools(tools: Vec<Box<dyn Tool>>) -> (Vec<Box<dyn Tool>>, BgJobStore) {
+    let bg_job_store = BgJobStore::new();
+    let tool_arcs: Vec<Arc<dyn Tool>> = tools
+        .into_iter()
+        .map(|t| Arc::from(t) as Arc<dyn Tool>)
+        .collect();
+    let tools_arc = Arc::new(tool_arcs);
+    let bg_run = BgRunTool::new(bg_job_store.clone(), Arc::clone(&tools_arc));
+    let bg_status = BgStatusTool::new(bg_job_store.clone());
+    let mut extended: Vec<Arc<dyn Tool>> = (*tools_arc).clone();
+    extended.push(Arc::new(bg_run));
+    extended.push(Arc::new(bg_status));
+    (boxed_registry_from_arcs(extended), bg_job_store)
 }
 
 /// Create the default tool registry
@@ -196,6 +224,8 @@ pub fn sandbox_tools(
                     Box::new(GitHubPushTool::new(zerobuild_config.clone())),
                     Box::new(GitHubCreateIssueTool::new(zerobuild_config.clone())),
                     Box::new(GitHubCreateIssueWithHashtagsTool::new(zerobuild_config.clone())),
+                    Box::new(GitHubEditIssueTool::new(zerobuild_config.clone())),
+                    Box::new(GitHubCloseIssueTool::new(zerobuild_config.clone())),
                     Box::new(GitHubCreatePRTool::new(zerobuild_config.clone())),
                     Box::new(GitHubReviewPRTool::new(zerobuild_config.clone())),
                     Box::new(GitHubReviewPRWithChecklistTool::new(zerobuild_config.clone())),
@@ -233,6 +263,8 @@ pub fn sandbox_tools(
         Box::new(GitHubPushTool::new(zerobuild_config.clone())),
         Box::new(GitHubCreateIssueTool::new(zerobuild_config.clone())),
         Box::new(GitHubCreateIssueWithHashtagsTool::new(zerobuild_config.clone())),
+        Box::new(GitHubEditIssueTool::new(zerobuild_config.clone())),
+        Box::new(GitHubCloseIssueTool::new(zerobuild_config.clone())),
         Box::new(GitHubCreatePRTool::new(zerobuild_config.clone())),
         Box::new(GitHubReviewPRTool::new(zerobuild_config.clone())),
         Box::new(GitHubReviewPRWithChecklistTool::new(zerobuild_config.clone())),
@@ -308,7 +340,7 @@ pub fn all_tools_with_runtime(
         Arc::new(CronRunsTool::new(config.clone())),
         Arc::new(MemoryStoreTool::new(memory.clone(), security.clone())),
         Arc::new(MemoryRecallTool::new(memory.clone())),
-        Arc::new(MemoryForgetTool::new(memory, security.clone())),
+        Arc::new(MemoryForgetTool::new(Arc::clone(&memory), security.clone())),
         Arc::new(ScheduleTool::new(security.clone(), root_config.clone())),
         Arc::new(ModelRoutingConfigTool::new(
             config.clone(),
@@ -373,6 +405,16 @@ pub fn all_tools_with_runtime(
 
     // PDF extraction (feature-gated at compile time via rag-pdf)
     tool_arcs.push(Arc::new(PdfReadTool::new(security.clone())));
+
+    // Office document extraction
+    tool_arcs.push(Arc::new(PptxReadTool::new(security.clone())));
+    tool_arcs.push(Arc::new(XlsxReadTool::new(security.clone())));
+
+    // Memory observation
+    tool_arcs.push(Arc::new(MemoryObserveTool::new(Arc::clone(&memory), security.clone())));
+
+    // Auth profile management
+    tool_arcs.push(Arc::new(ManageAuthProfileTool::new(Arc::new(root_config.clone()))));
 
     // Vision tools are always available
     tool_arcs.push(Arc::new(ScreenshotTool::new(security.clone())));

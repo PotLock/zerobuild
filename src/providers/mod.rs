@@ -17,9 +17,12 @@
 //! in [`create_provider_with_url`]. See `AGENTS.md` §7.1 for the full change playbook.
 
 pub mod anthropic;
+pub mod backoff;
 pub mod bedrock;
 pub mod compatible;
 pub mod copilot;
+pub mod cursor;
+pub mod health;
 pub mod gemini;
 pub mod ollama;
 pub mod openai;

@@ -1,454 +1,230 @@
 # GitHub Professional Writing Skill
 
-> **Master Agent Skill**: Transform user requests into professional, actionable GitHub Issues, PRs, and Plans
+> **ZeroBuild Agent Skill**: Transform user requests into professional, actionable GitHub Issues and Pull Requests
 
 ---
 
-## Overview
+## Mandatory Rules (Non-negotiable)
 
-Users often provide brief, informal descriptions:
-- "bug login not working"
-- "feature dark mode"
-- "fix crash bug"
-
-**Your role**: Transform these into professional, structured GitHub content that developers can immediately act upon.
+1. **English only** — All issue titles, bodies, PR titles, bodies, review comments, and closing comments MUST be written in English, regardless of the language the user spoke.
+2. **Bracketed type prefix** — Issue titles MUST begin with a bracketed type: `[Feature]:`, `[Bug]:`, `[Chore]:`, `[Docs]:`, `[Security]:`, `[Refactor]:`, `[Test]:`, or `[Perf]:`. Never use "Feature Request:", "Bug Report:", or similar verbose forms.
+3. **Labels required** — Every issue and PR MUST have at least one label applied at creation time. Never create unlabeled issues or PRs.
+4. **Confirm before creating** — Show the user a preview and wait for approval before calling any create/edit tool.
 
 ---
 
-## Core Principles
+## Issue Title Format
 
-1. **Always ask for missing information** - Never create bare-bones issues
-2. **Use templates** - Consistent format helps developers
-3. **Attach evidence** - Screenshots, logs, reproduction steps
-4. **Professional tone** - Clear, concise, actionable
-5. **Confirm before creating** - Show preview, wait for approval
+| Type | Prefix | Example |
+|------|--------|---------|
+| New capability | `[Feature]:` | `[Feature]: Add Stripe payment integration` |
+| Defect / regression | `[Bug]:` | `[Bug]: Login returns 500 on invalid credentials` |
+| Maintenance / tooling | `[Chore]:` | `[Chore]: Upgrade reqwest to v0.12` |
+| Documentation | `[Docs]:` | `[Docs]: Add quickstart guide for Docker setup` |
+| Security hardening | `[Security]:` | `[Security]: Enforce HTTPS on all API routes` |
+| Code restructuring | `[Refactor]:` | `[Refactor]: Extract token resolution into shared helper` |
+| Test coverage | `[Test]:` | `[Test]: Add integration tests for GitHub OAuth flow` |
+| Speed / efficiency | `[Perf]:` | `[Perf]: Cache GitHub token lookup to reduce DB reads` |
 
 ---
 
-## Feature A: Professional Issue Writing
+## Label Reference
 
-### Process Flow
+### Type labels (at least one required on every issue and PR)
 
-```
-User Request → Analyze Intent → Gather Info → Write Professionally → Preview → Create
-```
+| Label | When to use |
+|-------|-------------|
+| `feature` | New functionality |
+| `bug` | Defect or regression |
+| `chore` | Maintenance, deps, tooling |
+| `docs` | Documentation changes |
+| `security` | Security hardening or vulnerability |
+| `refactor` | Code restructuring, no behavior change |
+| `test` | Test coverage or test infra |
+| `perf` | Performance improvement |
 
-### Step 1: Analyze User Intent
+### Scope labels (optional, add when relevant)
 
-Extract from user's message:
-- **Type**: Bug, Feature, Enhancement, Documentation, Refactor
-- **Priority** (from hashtags): #critical, #urgent, #low-priority
-- **Component** (from hashtags): #ui, #api, #database, #auth, #security
+`provider`, `channel`, `tool`, `gateway`, `memory`, `runtime`, `config`, `ci`, `peripheral`
 
-### Step 2: Interactive Information Gathering
+### PR-specific labels (required for PRs)
 
-**For Bug Reports** - MUST ask if not provided:
+- **Size**: `size: XS`, `size: S`, `size: M`, `size: L`, `size: XL`
+- **Status**: `needs-review`, `blocked` (add when appropriate)
+- **Impact**: `breaking-change` (add when the PR breaks a public API, config key, or user-facing behavior)
 
-```
-❌ User: "login broken"
-✅ You: "I'll create a professional bug report. I need some details:
+---
 
-1. **Steps to reproduce** - What actions lead to the bug?
-2. **Expected behavior** - What should happen?
-3. **Actual behavior** - What actually happens?
-4. **Environment** - Browser, OS, app version?
-5. **Screenshots/logs** - Any visual evidence?"
-```
+## Issue Template (Required)
 
-**For Feature Requests** - MUST ask if not provided:
-
-```
-❌ User: "add dark mode"
-✅ You: "I'll create a detailed feature request. Please help me understand:
-
-1. **Use case** - When do you need this feature?
-2. **Expected behavior** - How should it work?
-3. **Acceptance criteria** - How do we know it's complete?
-4. **Priority** - How urgent is this?
-5. **Mockups/references** - Any examples from other apps?"
-```
-
-### Step 3: Bug Report Template
+Use this structure for every issue. Fill all sections; write "N/A — [reason]" if a section genuinely does not apply.
 
 ```markdown
-## 🐛 Bug Report
+## Summary
+[One paragraph: what this issue is about and why it matters.]
 
-### Summary
-[One clear sentence describing the bug]
+## Problem Statement
+[Describe the current behavior, gap, or pain point. For bugs: include exact reproduction steps and error messages.]
 
-### Steps to Reproduce
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
+## Proposed Solution
+[For features: what the new behavior should look like. For bugs: what correct behavior looks like.]
 
-### Expected Behavior
-[What should happen]
+## Non-goals / Out of Scope
+- [Explicitly list what this issue will NOT address.]
 
-### Actual Behavior
-[What actually happens - include error messages]
+## Alternatives Considered
+- [Alternatives evaluated and why they were not chosen.]
 
-### Environment
-| Item | Details |
-|------|---------|
-| OS | [e.g., Windows 11, macOS 14] |
-| Browser | [e.g., Chrome 120, Safari 17] |
-| App Version | [e.g., v2.1.0] |
-| Account Type | [if relevant] |
+## Acceptance Criteria
+- [ ] [Concrete, testable condition 1]
+- [ ] [Concrete, testable condition 2]
 
-### Evidence
-<details>
-<summary>Screenshots/Logs</summary>
+## Architecture Impact
+- Affected subsystems: [list modules, traits, tools, or channels impacted]
+- New dependencies: [none or list]
+- Config/schema changes: [yes/no — if yes, describe]
 
-[Paste images or code blocks here]
+## Risk and Rollback
+- Risk: [low / medium / high — and why]
+- Rollback: [how to revert if the fix or feature causes a regression]
 
-</details>
+## Breaking Change?
+- [ ] Yes — describe impact and migration path
+- [ ] No
 
-### Additional Context
-[Any other relevant information]
-
----
-*Reported via ZeroBuild*
+## Data Hygiene Checks
+- [ ] I removed personal/sensitive data from examples, payloads, and logs.
+- [ ] I used neutral, project-focused wording and placeholders.
 ```
 
-### Step 4: Feature Request Template
+---
+
+## PR Template (Required)
+
+Use this structure for every pull request.
 
 ```markdown
-## 🚀 Feature Request
+## Summary
+[One paragraph: what this PR does and why.]
 
-### Problem Statement
-[What problem does this solve? Why is it needed?]
+## Problem
+[What broken/missing behavior or gap does this PR address?]
 
-### Proposed Solution
-[Description of the feature]
+## Root Cause
+[For bug fixes: what was the underlying cause? For features: what need or gap drove this?]
 
-### User Story
-As a [type of user], I want [goal], so that [benefit].
+## Changes
+- [Concrete change 1 — module / file / behavior]
+- [Concrete change 2]
 
-### Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+## Validation
+- [ ] `cargo fmt --all -- --check` passed
+- [ ] `cargo clippy --all-targets -- -D warnings` passed
+- [ ] `cargo test` passed
+- [ ] Manual test / scenario: [describe]
+- [ ] Docker CI (`./dev/ci.sh all`) run: [yes / no / skipped — if skipped, explain]
 
-### Alternatives Considered
-[Other approaches you considered]
+## Automation / Workflow Notes
+[Any CI/CD, workflow, label-routing, or automation changes introduced or affected by this PR. Write "None" if not applicable.]
 
-### Additional Context
-[Mockups, references, similar features in other products]
+## Scope
+- Affected subsystems: [list]
+- Files changed: [count or list key files]
 
----
-*Requested via ZeroBuild*
+## Non-goals
+- [Explicitly list what this PR does NOT change.]
+
+## Risk
+- Risk tier: [low / medium / high]
+- Blast radius: [which subsystems or users could be affected by a regression]
+
+## Rollback
+- Revert strategy: [`git revert <commit>` or specific steps]
+- Migration needed on rollback: [yes / no — if yes, describe]
 ```
 
 ---
 
-## Feature B: Professional PR Writing
+## Information Gathering
 
-### PR Template
+### For bug issues — ask if not provided
 
-```markdown
-## 📋 Pull Request
+```
+I'll create a professional bug report. To help developers reproduce and fix this quickly, I need:
 
-### Summary
-[Brief description of changes - 1-2 sentences]
+1. **Steps to reproduce** — What exact actions lead to the bug?
+2. **Expected behavior** — What should happen?
+3. **Actual behavior** — What actually happens? Include error messages verbatim.
+4. **Environment** — OS, browser/client version, app version?
+5. **Evidence** — Screenshots, logs, or stack traces?
+```
 
-### Changes Made
-- [Change 1 with file references]
-- [Change 2 with file references]
-- [Change 3 with file references]
+### For feature issues — ask if not provided
 
-### Type of Change
-- [ ] 🐛 Bug fix (non-breaking)
-- [ ] ✨ New feature
-- [ ] 💥 Breaking change
-- [ ] 📚 Documentation
-- [ ] ♻️ Refactoring
-- [ ] ⚡ Performance
-- [ ] 🔒 Security
+```
+I'll create a detailed feature issue. Please help me understand:
 
-### Testing
-- [ ] Unit tests added/updated
-- [ ] Integration tests pass
-- [ ] Manual testing performed
-
-**Test Results:**
-[Describe what you tested and results]
-
-### Screenshots (if UI changes)
-[Before/After screenshots]
-
-### Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-review completed
-- [ ] Comments added for complex logic
-- [ ] Documentation updated (if needed)
-- [ ] No console errors
-- [ ] All tests pass
-
-### Related Issues
-Fixes #[issue_number]
-Closes #[issue_number]
-Related to #[issue_number]
-
----
-*Created via ZeroBuild*
+1. **Use case** — When and why do you need this feature?
+2. **Proposed behavior** — How should it work?
+3. **Acceptance criteria** — How do we know it's complete?
+4. **Priority** — How urgent is this?
+5. **References** — Examples from other tools or prior discussions?
 ```
 
 ---
 
-## Feature C: Professional Plan Writing
+## Tool Reference
 
-### When to Use
-
-Before executing any build, create a **structured plan** that:
-- Clarifies requirements
-- Defines scope and boundaries
-- Sets expectations
-- Enables better estimation
-
-### Plan Template
-
-```markdown
-# Build Plan: [Project Name]
-
-## 📋 Overview
-**Objective**: [Clear, one-sentence goal]
-**Scope**: [What's in scope vs out of scope]
-**Timeline**: [Estimated duration/complexity]
-
-## 🎯 Requirements Analysis
-
-### User Requirements
-1. [Requirement 1]
-2. [Requirement 2]
-3. [Requirement 3]
-
-### Technical Requirements
-- [Tech stack details]
-- [Performance requirements]
-- [Security considerations]
-
-## 🏗️ Architecture
-
-### Tech Stack
-| Layer | Technology | Justification |
-|-------|------------|---------------|
-| Frontend | [e.g., Next.js 14] | [Why this choice] |
-| Backend | [e.g., Node.js/Express] | [Why this choice] |
-| Database | [e.g., PostgreSQL] | [Why this choice] |
-| Hosting | [e.g., Vercel] | [Why this choice] |
-
-### Project Structure
-```
-app/
-├── page.tsx          # [Purpose]
-├── layout.tsx        # [Purpose]
-└── api/              # [Purpose]
-components/
-├── ui/               # [Purpose]
-└── sections/         # [Purpose]
-lib/
-└── utils.ts          # [Purpose]
-```
-
-## 📄 Pages & Routes
-
-| Route | Purpose | Key Features |
-|-------|---------|--------------|
-| `/` | Landing page | Hero, CTA, Features |
-| `/about` | About page | Team, Mission |
-| `/dashboard` | User dashboard | Data visualization |
-
-## 🎨 Design System
-
-### Color Palette
-- Primary: `#[hex]` - [Usage]
-- Secondary: `#[hex]` - [Usage]
-- Background: `#[hex]` - [Usage]
-- Text: `#[hex]` - [Usage]
-
-### Typography
-- Headings: [Font family]
-- Body: [Font family]
-
-### Components Needed
-- [ ] Button (primary, secondary, ghost)
-- [ ] Input (text, password, email)
-- [ ] Card
-- [ ] Modal
-- [ ] Navigation
-
-## 🔄 Build Phases
-
-### Phase 1: Foundation [Estimated: X minutes]
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
-
-### Phase 2: Core Features [Estimated: X minutes]
-- [ ] Task 1
-- [ ] Task 2
-
-### Phase 3: Polish [Estimated: X minutes]
-- [ ] Task 1
-- [ ] Task 2
-
-## ⚠️ Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| [Risk 1] | High | [How to handle] |
-| [Risk 2] | Medium | [How to handle] |
-
-## ✅ Success Criteria
-
-- [ ] Feature works as described
-- [ ] Responsive on mobile/tablet/desktop
-- [ ] No console errors
-- [ ] Performance: [metric]
-- [ ] Accessibility: WCAG 2.1 AA
-
-## 📝 Notes
-
-[Any additional context, assumptions, or constraints]
-
----
-*Plan created via ZeroBuild*
-```
-
-### Interactive Plan Creation Flow
-
-**Step 1: Initial Request Analysis**
-```
-User: "Build me an e-commerce site"
-
-You: "I'll create a comprehensive plan for your e-commerce site. Let me ask a few questions to ensure I build exactly what you need:
-
-1. **Products**: What types of products will you sell? Physical or digital?
-2. **Payments**: Do you need Stripe, PayPal, or other payment methods?
-3. **Features**: Which features are must-have?
-   - [ ] Shopping cart
-   - [ ] User accounts
-   - [ ] Order history
-   - [ ] Inventory management
-   - [ ] Reviews/ratings
-   - [ ] Search/filter
-4. **Design**: Any style preferences or reference sites?
-5. **Timeline**: Any deadline constraints?"
-```
-
-**Step 2: Draft Plan Preview**
-```
-"Based on your requirements, here's the plan:
-
-[Show formatted plan template]
-
-Does this cover everything? Any adjustments needed?"
-```
-
-**Step 3: Confirmation & Execution**
-```
-"✅ Plan finalized! I'll now proceed with Phase 1: Foundation.
-
-You can:
-- Reply 'go' to start building
-- Reply 'edit [section]' to modify
-- Reply 'add [feature]' to expand scope"
-```
+| Tool | Use case |
+|------|----------|
+| `github_create_issue` | Create a new issue with full control over content |
+| `github_create_issue_with_hashtags` | Create issue and auto-extract labels from hashtags |
+| `github_edit_issue` | Update an existing issue's title, body, labels, or state — do not close and recreate |
+| `github_close_issue` | Close an issue with a required English resolution comment |
+| `github_create_pr` | Create a pull request with labels |
+| `github_review_pr` | Submit a review (approve / request changes / comment) |
+| `github_review_pr_with_checklist` | Review using hashtag checklist format |
+| `github_analyze_pr` | Suggest review categories for a PR |
+| `github_list_issues` | List open or closed issues |
+| `github_list_prs` | List open or closed pull requests |
+| `github_get_issue` | Get full details for a specific issue |
+| `github_get_pr` | Get full details for a specific PR |
+| `github_upload_image` | Upload a screenshot to Imgur for embedding in issues/PRs |
+| `create_job` | Execute build plans |
 
 ---
 
-## Feature D: Image Handling
+## Closing Issues
 
-### When User Sends Screenshots
+When closing an issue always:
+1. Call `github_close_issue` with a clear English `comment` explaining the outcome.
+2. Set `reason` to `"completed"` (fixed / done) or `"not_planned"` (won't fix / out of scope / duplicate).
 
-1. **Acknowledge**: "✅ Screenshot received. I'll include this in the issue."
-
-2. **Upload** using `github_upload_image`:
-   ```json
-   {
-     "image_data": "base64_encoded_image",
-     "filename": "login-error.png",
-     "title": "Login error screenshot"
-   }
-   ```
-
-3. **Embed in issue**:
-   ```markdown
-   ![Login Error](https://i.imgur.com/xxx.png)
-   ```
-
-### Image Storage Options
-
-| Provider | Best For | Setup |
-|----------|----------|-------|
-| **Imgur** | Quick screenshots | Set `IMGUR_CLIENT_ID` env var |
-| **GitHub Assets** | Permanent docs | Upload to repo's assets |
-| **Base64** | Small icons | Inline in issue (not recommended for large images) |
+Resolution comment examples:
+- Fixed: `"Fixed in #42 — the token validation logic now rejects expired tokens correctly."`
+- Won't fix: `"Out of scope for this milestone. The current architecture does not support dynamic provider loading. Tracked in the roadmap as a future enhancement."`
+- Duplicate: `"Duplicate of #10, which tracks the same authentication regression. Please follow #10 for updates."`
 
 ---
 
 ## Hashtag to Label Mapping
 
-| Hashtag | GitHub Label | Priority |
-|---------|--------------|----------|
-| #bug | `bug` | Type |
-| #feature | `enhancement` | Type |
-| #critical | `critical` + `priority:high` | Critical |
-| #urgent | `priority:high` | High |
-| #ui | `ui`, `frontend` | Component |
-| #api | `api`, `backend` | Component |
-| #auth | `authentication`, `security` | Component |
-| #database | `database` | Component |
-| #security | `security` | Category |
-| #performance | `performance` | Category |
-| #docs | `documentation` | Category |
-| #tests | `testing` | Category |
-| #refactor | `refactoring` | Category |
-
----
-
-## Response Patterns
-
-### When Information is Missing
-
-```
-"To create a professional issue that developers can act on quickly, I need a bit more information:
-
-**Required**:
-1. [Specific question 1]
-2. [Specific question 2]
-
-**Optional but helpful**:
-3. [Question 3]
-
-You can reply with answers, or say 'skip' for optional items."
-```
-
-### When Ready to Create
-
-```
-"✅ All information gathered! Here's the professional issue I'll create:
-
-**Preview**:
-[Show formatted issue]
-
-**Labels**: [List labels]
-
-Create this issue? (Reply 'yes' or suggest edits)"
-```
-
-### After Creation
-
-```
-"✅ Issue #42 created: https://github.com/.../issues/42
-
-**What happens next**:
-- Developers will review within [timeframe]
-- You'll receive updates via Telegram
-- Reply to this thread to add comments
-
-Need anything else?"
-```
+| Hashtag | GitHub label |
+|---------|--------------|
+| `#bug` | `bug` |
+| `#feature` | `feature` |
+| `#chore` | `chore` |
+| `#docs` | `docs` |
+| `#security` | `security` |
+| `#refactor` | `refactor` |
+| `#test` | `test` |
+| `#perf` | `perf` |
+| `#critical` | `priority: critical` |
+| `#urgent` | `priority: high` |
+| `#ui` | `frontend` |
+| `#api` | `backend` |
+| `#auth` | `authentication` |
+| `#database` | `database` |
 
 ---
 
@@ -456,105 +232,50 @@ Need anything else?"
 
 Before submitting any GitHub content:
 
-- [ ] Title is clear and specific
-- [ ] All template sections filled (use N/A if not applicable)
-- [ ] Grammar and spelling checked
-- [ ] Markdown formatting correct
-- [ ] Images uploaded and linked
-- [ ] Hashtags mapped to correct labels
-- [ ] Related issues/PRs linked
-- [ ] User has confirmed preview
+- [ ] Title uses the correct bracketed prefix (`[Feature]:`, `[Bug]:`, etc.)
+- [ ] Title and all body sections are written in English
+- [ ] At least one type label applied
+- [ ] All template sections filled (or explicitly marked N/A)
+- [ ] Data hygiene checks completed
+- [ ] User has confirmed the preview
 
 ---
 
-## Tools Reference
+## Response Patterns
 
-| Tool | Use Case |
-|------|----------|
-| `github_create_issue_with_hashtags` | Auto-extract labels from hashtags |
-| `github_create_issue` | Full control over issue content |
-| `github_create_pr` | Create PRs with labels |
-| `github_upload_image` | Host screenshots |
-| `github_analyze_pr` | Suggest review hashtags |
-| `github_review_pr_with_checklist` | Review with hashtag checklist |
-| `create_job` | Execute build plans |
-
----
-
-## Examples
-
-### Example 1: Bug Report with Iterative Refinement
+### When ready to create
 
 ```
-User: "#bug #critical login error"
+Here is the issue I will create:
 
-You: "I see you're reporting a critical login bug. To help developers fix this quickly, I need some details:
-
-1. **Reproduction steps**: What do you click/tap before the error?
-2. **Error message**: What exactly does it say?
-3. **Environment**: What device/browser are you using?
-4. **Screenshot**: Can you send a screenshot of the error?"
-
-User: "I enter email and password, click login, then it says 'Invalid credentials'. Using Chrome on Windows 11"
-[Sends screenshot]
-
-You: "✅ Got it! I'll create a professional bug report:
+**Title**: [Feature]: Add Stripe payment integration
+**Labels**: feature, backend, size: M
 
 **Preview**:
-🐛 [Critical] Login returns "Invalid credentials" despite valid inputs
+[formatted issue body]
 
-**Steps to Reproduce**:
-1. Navigate to login page
-2. Enter valid email and password
-3. Click "Sign In"
-4. Observe error message
-
-**Expected**: Successful login
-**Actual**: "Invalid credentials" error
-
-**Environment**: Windows 11, Chrome
-
-📎 Screenshot attached
-
-Create this issue?"
-
-User: "yes"
-
-You: [Creates issue]
-"✅ Issue #43 created with labels: bug, critical, auth, priority:high"
+Create this issue? (Reply yes or suggest edits)
 ```
 
-### Example 2: Feature Request with Plan
+### After creation
 
 ```
-User: "I want a dashboard to view my sales data"
+Issue #42 created: https://github.com/.../issues/42
+Labels applied: feature, backend
 
-You: "I'll help you create a sales dashboard. Let me gather requirements:
+What happens next:
+- Developers will review and triage
+- Reply to this thread to add comments or screenshots
+```
 
-1. **Data sources**: Where does sales data come from? (CSV, API, database?)
-2. **Key metrics**: What KPIs are most important?
-   - Revenue?
-   - Sales count?
-   - Top products?
-   - Trends over time?
-3. **Users**: Who will use this dashboard?
-4. **Style**: Any preference (minimal, colorful, corporate)?"
+### After closing
 
-User: "Data from my Shopify store. Need revenue, top products, daily trends. Just for me. Clean style like Stripe dashboard."
-
-You: "Perfect! I'll create a comprehensive plan:
-
-[Shows detailed plan template with phases]
-
-Phase 1: Connect Shopify API
-Phase 2: Build dashboard components
-Phase 3: Styling and polish
-
-Estimated time: 45 minutes
-
-Ready to proceed?"
+```
+Issue #17 closed: https://github.com/.../issues/17
+Reason: completed
+Resolution comment posted.
 ```
 
 ---
 
-*Version: 2.0 | ZeroBuild Master Agent Skill*
+*Version: 3.0 | ZeroBuild Agent Skill*

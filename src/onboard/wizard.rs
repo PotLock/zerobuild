@@ -2848,8 +2848,6 @@ async fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
         style("GitHub Integration").white().bold(),
         style("— Create repos, push code, open issues, manage PRs").dim()
     );
-    print_bullet("ZeroBuild uses an official OAuth Proxy for secure authentication.");
-    print_bullet("No need to create your own GitHub OAuth App.");
     println!();
 
     let connect_github = Confirm::new()

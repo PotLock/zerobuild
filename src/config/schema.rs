@@ -2458,6 +2458,12 @@ pub struct ChannelsConfig {
     pub lark: Option<LarkConfig>,
     /// DingTalk channel configuration.
     pub dingtalk: Option<DingTalkConfig>,
+    /// Napcat (OneBot/QQ) channel configuration.
+    pub napcat: Option<NapcatConfig>,
+    /// GitHub webhook channel configuration.
+    pub github: Option<GitHubConfig>,
+    /// BlueBubbles iMessage bridge channel configuration.
+    pub bluebubbles: Option<BlueBubblesConfig>,
     /// QQ Official Bot channel configuration.
     pub qq: Option<QQConfig>,
     pub nostr: Option<NostrConfig>,
@@ -2581,6 +2587,9 @@ impl Default for ChannelsConfig {
             irc: None,
             lark: None,
             dingtalk: None,
+            napcat: None,
+            github: None,
+            bluebubbles: None,
             qq: None,
             nostr: None,
             clawdtalk: None,
@@ -3205,6 +3214,101 @@ impl ChannelConfig for DingTalkConfig {
     fn desc() -> &'static str {
         "DingTalk Stream Mode"
     }
+}
+
+/// Napcat (OneBot v11 over WebSocket) channel configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct NapcatConfig {
+    /// Napcat WebSocket endpoint (e.g. `ws://127.0.0.1:3001`)
+    #[serde(alias = "ws_url")]
+    pub websocket_url: String,
+    /// Optional HTTP API base URL. If omitted, derived from websocket_url.
+    #[serde(default)]
+    pub api_base_url: String,
+    /// Optional access token (Authorization Bearer token)
+    pub access_token: Option<String>,
+    /// Allowed user IDs. Empty = deny all, "*" = allow all
+    #[serde(default)]
+    pub allowed_users: Vec<String>,
+}
+
+impl ChannelConfig for NapcatConfig {
+    fn name() -> &'static str { "Napcat" }
+    fn desc() -> &'static str { "QQ via Napcat (OneBot)" }
+}
+
+/// GitHub channel configuration (webhook + REST API).
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct GitHubConfig {
+    /// GitHub token used for outbound API calls.
+    ///
+    /// Supports fine-grained PAT or installation token with `issues:write` / `pull_requests:write`.
+    pub access_token: String,
+    /// Optional webhook secret to verify `X-Hub-Signature-256`.
+    #[serde(default)]
+    pub webhook_secret: Option<String>,
+    /// Optional GitHub API base URL (for GHES).
+    /// Defaults to `https://api.github.com` when omitted.
+    #[serde(default)]
+    pub api_base_url: Option<String>,
+    /// Allowed repositories (`owner/repo`), `owner/*`, or `*`.
+    /// Empty list denies all repositories.
+    #[serde(default)]
+    pub allowed_repos: Vec<String>,
+}
+
+impl std::fmt::Debug for GitHubConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GitHubConfig")
+            .field("access_token", &"[REDACTED]")
+            .field("webhook_secret", &self.webhook_secret.as_ref().map(|_| "[REDACTED]"))
+            .field("api_base_url", &self.api_base_url)
+            .field("allowed_repos", &self.allowed_repos)
+            .finish()
+    }
+}
+
+impl ChannelConfig for GitHubConfig {
+    fn name() -> &'static str { "GitHub" }
+    fn desc() -> &'static str { "issues/PR comments via webhook + REST API" }
+}
+
+/// BlueBubbles iMessage bridge channel configuration.
+///
+/// BlueBubbles is a self-hosted macOS server that exposes iMessage via a
+/// REST API and webhook push notifications. See <https://bluebubbles.app>.
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+pub struct BlueBubblesConfig {
+    /// BlueBubbles server URL (e.g. `http://192.168.1.100:1234` or an ngrok URL).
+    pub server_url: String,
+    /// BlueBubbles server password.
+    pub password: String,
+    /// Allowed sender handles (phone numbers or Apple IDs). Use `["*"]` to allow all.
+    #[serde(default)]
+    pub allowed_senders: Vec<String>,
+    /// Optional shared secret to authenticate inbound webhooks.
+    /// If set, incoming requests must include `Authorization: Bearer <secret>`.
+    #[serde(default)]
+    pub webhook_secret: Option<String>,
+    /// Sender handles to silently ignore (e.g. suppress echoed outbound messages).
+    #[serde(default)]
+    pub ignore_senders: Vec<String>,
+}
+
+impl std::fmt::Debug for BlueBubblesConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlueBubblesConfig")
+            .field("server_url", &self.server_url)
+            .field("password", &"[REDACTED]")
+            .field("allowed_senders", &self.allowed_senders)
+            .field("webhook_secret", &self.webhook_secret.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
+}
+
+impl ChannelConfig for BlueBubblesConfig {
+    fn name() -> &'static str { "BlueBubbles" }
+    fn desc() -> &'static str { "iMessage via BlueBubbles self-hosted macOS server" }
 }
 
 /// QQ Official Bot configuration (Tencent QQ Bot SDK)
@@ -4358,7 +4462,9 @@ pub struct ZerobuildConfig {
     #[serde(default = "default_github_oauth_proxy")]
     pub github_oauth_proxy: String,
 
-    /// Path to the ZeroBuild SQLite database. Default: "./data/zerobuild.db".
+    /// Path to the ZeroBuild SQLite database.
+    /// Default: `~/.zerobuild/zerobuild.db`.
+    #[serde(default = "default_db_path")]
     pub db_path: String,
 }
 
@@ -4372,9 +4478,18 @@ impl Default for ZerobuildConfig {
             github_client_secret: String::new(),
             github_oauth_proxy: default_github_oauth_proxy(),
             docker_image: default_docker_sandbox_image(),
-            db_path: "./data/zerobuild.db".to_string(),
+            db_path: default_db_path(),
         }
     }
+}
+
+fn default_db_path() -> String {
+    let home = UserDirs::new()
+        .map_or_else(|| PathBuf::from("."), |u| u.home_dir().to_path_buf());
+    home.join(".zerobuild")
+        .join("zerobuild.db")
+        .to_string_lossy()
+        .to_string()
 }
 
 fn default_github_oauth_proxy() -> String {
@@ -4639,6 +4754,9 @@ default_temperature = 0.7
                 irc: None,
                 lark: None,
                 dingtalk: None,
+                napcat: None,
+                github: None,
+                bluebubbles: None,
                 qq: None,
                 nostr: None,
                 clawdtalk: None,
@@ -5193,6 +5311,9 @@ allowed_users = ["@ops:matrix.org"]
             irc: None,
             lark: None,
             dingtalk: None,
+            napcat: None,
+            github: None,
+            bluebubbles: None,
             qq: None,
             nostr: None,
             clawdtalk: None,
@@ -5405,6 +5526,9 @@ channel_id = "C123"
             irc: None,
             lark: None,
             dingtalk: None,
+            napcat: None,
+            github: None,
+            bluebubbles: None,
             qq: None,
             nostr: None,
             clawdtalk: None,

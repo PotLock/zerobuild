@@ -11,7 +11,7 @@ Scope: entire repository (Rust runtime only — Node.js backend removed).
 
 **ZeroBuild** is a single-tier AI agent system built on ZeroBuild:
 
-- **Master Agent** — ZeroBuild Rust runtime. Handles Telegram conversations, proposes plans, writes code directly into E2B sandboxes using built-in E2B tools, and pushes to GitHub.
+- **ZeroBuild Agent** — ZeroBuild Rust runtime. Handles Telegram conversations, proposes plans, writes code directly into E2B sandboxes using built-in E2B tools, and pushes to GitHub.
 
 ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized for performance, efficiency, stability, extensibility, sustainability, and security. ZeroBuild keeps all of that and adds a web-app-building product layer on top.
 
@@ -42,7 +42,7 @@ ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized
 Telegram User
     │
     ▼
-ZeroBuild Runtime (Rust)   ← Master Agent
+ZeroBuild Runtime (Rust)   ← ZeroBuild Agent
   • Runs the conversation loop
   • Proposes plans, waits for user confirmation
   • Calls E2B tools directly (no backend proxy)
@@ -57,7 +57,7 @@ E2B MicroVM               ← Isolated build sandbox
 
 ### Why single-tier
 
-1. **Simplicity**: No HTTP proxy layer between Master Agent and E2B. Fewer moving parts = easier to debug.
+1. **Simplicity**: No HTTP proxy layer between the agent and E2B. Fewer moving parts = easier to debug.
 2. **Security boundary preserved**: OAuth tokens stored in SQLite only, never in logs or agent messages.
 3. **Re-hydration pattern**: SQLite snapshots (`src/store/snapshot.rs`) allow future sessions to restore previous builds.
 4. **Direct GitHub push**: `request_deploy` uses git blobs/tree/commit/ref API — no intermediate service needed.
@@ -66,7 +66,7 @@ E2B MicroVM               ← Isolated build sandbox
 
 - **User-facing name**: `ZeroBuild` — users interact with ZeroBuild via Telegram
 - **Runtime engine**: ZeroBuild — internal name, never shown to users
-- **`IDENTITY.md`**: loaded by the Master Agent to enforce this boundary
+- **`IDENTITY.md`**: loaded by the ZeroBuild Agent to enforce this boundary
 
 ---
 
@@ -122,7 +122,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 
 ## 4) Repository Map
 
-### Rust (Master Agent)
+### Rust (ZeroBuild Agent)
 
 - `src/main.rs` — CLI entrypoint
 - `src/agent/` — orchestration loop
@@ -147,7 +147,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 
 ### 5.1 E2B tool workflow
 
-The Master Agent uses these 8 E2B tools to build web apps:
+The ZeroBuild Agent uses these 8 E2B tools to build web apps:
 
 | Tool | Purpose |
 |------|---------|
@@ -172,7 +172,7 @@ The Master Agent uses these 8 E2B tools to build web apps:
 
 ### 5.2 Plan enforcement
 
-The Master Agent must always propose and confirm a plan before building. This is enforced at system-prompt level.
+The ZeroBuild Agent must always propose and confirm a plan before building. This is enforced at system-prompt level.
 
 Never skip the plan step. Plan-before-build is a core product guarantee.
 
@@ -186,7 +186,7 @@ Agent workspace inside sandbox: `/home/user/project/`
 
 ### 5.4 Next.js project structure
 
-The Master Agent must maintain this layout:
+The ZeroBuild Agent must maintain this layout:
 
 ```
 /home/user/project/         ← Next.js project root (package.json here)
@@ -234,7 +234,7 @@ When `npm run build` fails:
 
 ### 5.6 GitHub OAuth deploy flow
 
-1. Master agent calls `request_deploy` tool
+1. ZeroBuild Agent calls `request_deploy` tool
 2. If GitHub not connected: error with `/auth/github` URL
 3. User visits `/auth/github` → GitHub OAuth → callback stores token in SQLite
 4. User tells agent "done" → agent retries `request_deploy`
@@ -289,7 +289,7 @@ ZeroBuild-specific fields in `ZerobuildConfig`:
 
 ### 7.3 Architecture Boundary Contract (Required)
 
-- Master Agent communicates with E2B directly via HTTP — no proxy layer.
+- ZeroBuild Agent communicates with E2B directly via HTTP — no proxy layer.
 - E2B API key must not appear in logs, Telegram messages, or tool results.
 - OAuth tokens must never appear in logs, Telegram messages, or agent tool results.
 - GitHub API calls must use token loaded from `src/store/tokens.rs` — never hardcoded.
@@ -298,7 +298,7 @@ ZeroBuild-specific fields in `ZerobuildConfig`:
 
 ## 8) Validation Matrix
 
-### Rust (Master Agent)
+### Rust (ZeroBuild Agent)
 
 ```bash
 cargo fmt --all -- --check
