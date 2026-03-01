@@ -43,7 +43,7 @@ impl Tool for SandboxSaveSnapshotTool {
             "properties": {
                 "workdir": {
                     "type": "string",
-                    "description": "Root directory of the project in the sandbox (e.g. /home/user/project). Default: /home/user/project."
+                    "description": "Project root relative to sandbox root (e.g. 'project'). Default: 'project'. NEVER use absolute paths like /home/user/project."
                 },
                 "project_type": {
                     "type": "string",
@@ -64,7 +64,7 @@ impl Tool for SandboxSaveSnapshotTool {
             });
         }
 
-        let workdir = args["workdir"].as_str().unwrap_or("/home/user/project");
+        let workdir = args["workdir"].as_str().unwrap_or("project");
         let project_type = args["project_type"].as_str();
 
         // Collect snapshot files from the sandbox

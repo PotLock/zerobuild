@@ -429,7 +429,7 @@ async fn get_latest_commit_sha(
 
 /// Strip common sandbox working directory prefixes to get a relative path.
 fn strip_workdir_prefix(path: &str) -> String {
-    let prefixes = ["/home/user/project/", "/home/user/"];
+    let prefixes = ["project/", "/home/user/project/", "/home/user/"];
     for prefix in &prefixes {
         if let Some(rel) = path.strip_prefix(prefix) {
             return rel.to_string();
@@ -477,6 +477,10 @@ mod tests {
 
     #[test]
     fn strip_workdir_prefix_works() {
+        assert_eq!(
+            strip_workdir_prefix("project/src/app/page.tsx"),
+            "src/app/page.tsx"
+        );
         assert_eq!(
             strip_workdir_prefix("/home/user/project/src/app/page.tsx"),
             "src/app/page.tsx"

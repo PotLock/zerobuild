@@ -206,8 +206,11 @@ Agent workspace inside sandbox: `project/` (relative to sandbox root)
 
 - The sandbox root is `$TMPDIR/zerobuild-sandbox-{uuid}/`.
 - App directory: `project/` inside sandbox root (Next.js project root here).
-- All paths passed to sandbox tools are relative to the sandbox root — no leading `/` required.
+- All paths passed to sandbox tools are **relative to the sandbox root** — no leading `/` required.
 - `npm run build` **must** be run from the `project/` workdir.
+- **NEVER** use `/home/user/project` or any absolute path in tool arguments or inside shell commands — the local sandbox has no `/home/user/` directory. Use relative paths (e.g. `project/`) or `$HOME/project` which resolves to the sandbox root.
+- ✅ Correct: `workdir: "project"`, command: `cd project && npm install`
+- ❌ Wrong: `workdir: "/home/user/project"`, command: `cd /home/user/project && npm install`
 
 ### 5.4 Next.js project structure
 

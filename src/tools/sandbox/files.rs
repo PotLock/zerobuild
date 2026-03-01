@@ -36,7 +36,7 @@ impl Tool for SandboxWriteFileTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Absolute file path in the sandbox (e.g. /home/user/project/src/app/page.tsx)"
+                    "description": "File path relative to sandbox root (e.g. 'project/src/app/page.tsx'). NEVER use absolute paths like /home/user/project/..."
                 },
                 "content": {
                     "type": "string",
@@ -180,7 +180,7 @@ impl Tool for SandboxListFilesTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Directory path to list (e.g. /home/user/project/src)"
+                    "description": "Directory path relative to sandbox root (e.g. 'project/src'). NEVER use absolute paths like /home/user/project/..."
                 }
             },
             "required": ["path"]

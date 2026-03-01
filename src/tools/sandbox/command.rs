@@ -45,7 +45,7 @@ impl Tool for SandboxRunCommandTool {
                 },
                 "workdir": {
                     "type": "string",
-                    "description": "Working directory for the command. Default: /home/user."
+                    "description": "Working directory relative to sandbox root (e.g. 'project'). Default: 'project'. NEVER use absolute paths like /home/user/project."
                 },
                 "timeout_ms": {
                     "type": "integer",
@@ -82,7 +82,7 @@ impl Tool for SandboxRunCommandTool {
             });
         }
 
-        let workdir = args["workdir"].as_str().unwrap_or("/home/user/project");
+        let workdir = args["workdir"].as_str().unwrap_or("project");
         let timeout_ms = args["timeout_ms"].as_u64().unwrap_or(300_000);
 
         match self.client.run_command(command, workdir, timeout_ms).await {
