@@ -132,6 +132,15 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
 
     // ── Build config ──
     // Defaults: SQLite memory, supervised autonomy, workspace-scoped, native runtime
+    // Auto-configure fallback providers based on primary provider selection
+    let fallback_providers = suggested_fallback_providers(&provider);
+    let reliability_config = crate::config::ReliabilityConfig {
+        provider_retries: 2,
+        provider_backoff_ms: 500,
+        fallback_providers,
+        ..Default::default()
+    };
+
     let config = Config {
         workspace_dir: workspace_dir.clone(),
         config_path: config_path.clone(),
@@ -147,7 +156,7 @@ pub async fn run_wizard(force: bool) -> Result<Config> {
         observability: ObservabilityConfig::default(),
         autonomy: AutonomyConfig::default(),
         runtime: RuntimeConfig::default(),
-        reliability: crate::config::ReliabilityConfig::default(),
+        reliability: reliability_config,
         scheduler: crate::config::schema::SchedulerConfig::default(),
         agent: crate::config::schema::AgentConfig::default(),
         skills: crate::config::SkillsConfig::default(),
@@ -346,7 +355,7 @@ fn apply_provider_update(
     model: String,
     provider_api_url: Option<String>,
 ) {
-    config.default_provider = Some(provider);
+    config.default_provider = Some(provider.clone());
     config.default_model = Some(model);
     config.api_url = provider_api_url;
     config.api_key = if api_key.trim().is_empty() {
@@ -354,6 +363,8 @@ fn apply_provider_update(
     } else {
         Some(api_key)
     };
+    // Update fallback providers to match the new primary provider
+    config.reliability.fallback_providers = suggested_fallback_providers(&provider);
 }
 
 // ── Quick setup (zero prompts) ───────────────────────────────────
@@ -481,6 +492,15 @@ async fn run_quick_setup_with_home(
     // Create memory config based on backend choice
     let memory_config = memory_config_defaults_for_backend(&memory_backend_name);
 
+    // Auto-configure fallback providers for quick setup too
+    let fallback_providers = suggested_fallback_providers(&provider_name);
+    let reliability_config = crate::config::ReliabilityConfig {
+        provider_retries: 2,
+        provider_backoff_ms: 500,
+        fallback_providers,
+        ..Default::default()
+    };
+
     let config = Config {
         workspace_dir: workspace_dir.clone(),
         config_path: config_path.clone(),
@@ -496,7 +516,7 @@ async fn run_quick_setup_with_home(
         observability: ObservabilityConfig::default(),
         autonomy: AutonomyConfig::default(),
         runtime: RuntimeConfig::default(),
-        reliability: crate::config::ReliabilityConfig::default(),
+        reliability: reliability_config,
         scheduler: crate::config::schema::SchedulerConfig::default(),
         agent: crate::config::schema::AgentConfig::default(),
         skills: crate::config::SkillsConfig::default(),
@@ -2686,6 +2706,142 @@ fn local_provider_choices() -> Vec<(&'static str, &'static str)> {
             "Osaurus — unified AI edge runtime (local MLX + cloud proxy + MCP)",
         ),
     ]
+}
+
+/// Suggest fallback providers based on the primary provider selection.
+/// This ensures that if the primary provider fails, ZeroBuild can automatically
+/// failover to alternative providers.
+fn suggested_fallback_providers(primary_provider: &str) -> Vec<String> {
+    let canonical = canonical_provider_name(primary_provider);
+
+    match canonical {
+        // Chinese providers - fallback to other Chinese providers + international
+        "kimi-code" | "moonshot" => vec![
+            "moonshot".to_string(),
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+        ],
+        "glm" | "zai" => vec![
+            "zai".to_string(),
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+        ],
+        "minimax" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "moonshot".to_string(),
+        ],
+        "qwen" | "qwen-code" => vec![
+            "qwen".to_string(),
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+        ],
+        "qianfan" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "moonshot".to_string(),
+        ],
+        // International providers
+        "anthropic" => vec![
+            "openrouter".to_string(),
+            "openai".to_string(),
+            "gemini".to_string(),
+        ],
+        "openai" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "gemini".to_string(),
+        ],
+        "openai-codex" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        "gemini" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        "deepseek" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        "groq" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "fireworks".to_string(),
+        ],
+        "mistral" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        "xai" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "groq".to_string(),
+        ],
+        "venice" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        "fireworks" => vec![
+            "openrouter".to_string(),
+            "together-ai".to_string(),
+            "groq".to_string(),
+        ],
+        "together-ai" => vec![
+            "openrouter".to_string(),
+            "fireworks".to_string(),
+            "groq".to_string(),
+        ],
+        "cohere" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        "perplexity" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        // OpenRouter is already a router - fallback to direct providers
+        "openrouter" => vec![
+            "anthropic".to_string(),
+            "openai".to_string(),
+            "gemini".to_string(),
+        ],
+        // Local providers - fallback to cloud providers
+        "ollama" | "llamacpp" | "sglang" | "vllm" | "osaurus" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "groq".to_string(),
+        ],
+        // Gateway/proxy providers
+        "vercel" | "cloudflare" | "astrai" => vec![
+            "openrouter".to_string(),
+            "anthropic".to_string(),
+            "openai".to_string(),
+        ],
+        // AWS Bedrock
+        "bedrock" => vec![
+            "anthropic".to_string(),
+            "openrouter".to_string(),
+            "openai".to_string(),
+        ],
+        "nvidia" => vec![
+            "openrouter".to_string(),
+            "fireworks".to_string(),
+            "groq".to_string(),
+        ],
+        // Default: no specific fallbacks (empty vec)
+        _ => vec![],
+    }
+    .into_iter()
+    .filter(|p| p != canonical) // Remove self from fallbacks
+    .collect()
 }
 
 /// Map provider name to its conventional env var
