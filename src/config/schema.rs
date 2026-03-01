@@ -4444,26 +4444,10 @@ impl Default for SopConfig {
 /// ```toml
 /// [zerobuild]
 /// role = "master"
-/// e2b_api_key = "e2b_..."
-/// e2b_template = "base"
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct ZerobuildConfig {
-    /// E2B API key. Overridden by `E2B_API_KEY` env var.
-    pub e2b_api_key: String,
-
-    /// E2B sandbox template ID. Default: "base".
-    pub e2b_template: String,
-
-    /// E2B sandbox timeout in milliseconds. Default: 600000 (10 minutes).
-    pub e2b_timeout_ms: u64,
-
-    /// Docker image for local sandbox provider (used when E2B_API_KEY is absent).
-    /// Default: "node:20-alpine".
-    #[serde(default = "default_docker_sandbox_image")]
-    pub docker_image: String,
-
     /// GitHub OAuth client ID for the GitHub connector (`/auth/github` flow).
     /// If not set, ZeroBuild will use the official OAuth Proxy for seamless connection.
     pub github_client_id: String,
@@ -4487,13 +4471,9 @@ pub struct ZerobuildConfig {
 impl Default for ZerobuildConfig {
     fn default() -> Self {
         Self {
-            e2b_api_key: String::new(),
-            e2b_template: "base".to_string(),
-            e2b_timeout_ms: 600_000,
             github_client_id: String::new(),
             github_client_secret: String::new(),
             github_oauth_proxy: default_github_oauth_proxy(),
-            docker_image: default_docker_sandbox_image(),
             db_path: default_db_path(),
         }
     }
@@ -4509,10 +4489,6 @@ fn default_db_path() -> String {
 
 fn default_github_oauth_proxy() -> String {
     "https://zerobuild-oauth-proxy.githubz.workers.dev".to_string()
-}
-
-fn default_docker_sandbox_image() -> String {
-    "node:20-alpine".into()
 }
 
 #[cfg(test)]

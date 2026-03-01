@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn tool_name() {
         let tmp = TempDir::new().unwrap();
-        let client = Arc::new(crate::sandbox::e2b::E2bSandboxClient::new(""));
+        let client = Arc::new(crate::sandbox::local::LocalProcessSandboxClient::new());
         assert_eq!(
             SandboxSaveSnapshotTool::new(client, tmp.path().join("test.db")).name(),
             TOOL_NAME

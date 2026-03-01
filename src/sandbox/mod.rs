@@ -1,15 +1,13 @@
 //! Sandbox abstraction layer for ZeroBuild.
 //!
 //! Defines the [`SandboxClient`] trait and [`CommandOutput`] type that all
-//! sandbox providers must implement. Currently two providers exist:
+//! sandbox providers must implement. Currently one provider exists:
 //!
-//! - [`e2b::E2bSandboxClient`] — E2B cloud MicroVM (requires `E2B_API_KEY`)
-//! - [`docker::DockerSandboxClient`] — local Docker container (no API key needed)
+//! - [`local::LocalProcessSandboxClient`] — native process sandbox (no external deps)
 //!
-//! The factory in [`crate::tools::mod`] auto-selects the provider at startup.
+//! The factory in [`crate::tools::mod`] selects the provider at startup.
 
-pub mod docker;
-pub mod e2b;
+pub mod local;
 
 use async_trait::async_trait;
 use std::collections::HashMap;

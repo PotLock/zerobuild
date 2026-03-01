@@ -122,7 +122,14 @@ impl Tool for ShellTool {
     }
 
     fn description(&self) -> &str {
-        "Execute a shell command in the workspace directory"
+        "Execute a shell command LOCALLY in the workspace directory. \
+         ⚠️ LOCAL ONLY — Does NOT run in the sandbox. \
+         \
+         FORBIDDEN for: npm install, npx create-next-app, npm run build, npm run dev \
+         \
+         Use `sandbox_run_command` instead for all build/development operations. \
+         \
+         Use this ONLY for: simple file operations (ls, cat, pwd), git status, quick checks."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -152,6 +159,36 @@ impl Tool for ShellTool {
             .get("approved")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+
+        // HARD BLOCK: Prevent npm/npx/node build commands in shell
+        let cmd_lower = command.to_lowercase();
+        let forbidden_patterns = [
+            "npm install",
+            "npm i ",
+            "npx create-",
+            "npm run",
+            "npx ",
+            "node ",
+            "npm build",
+        ];
+        for pattern in &forbidden_patterns {
+            if cmd_lower.contains(pattern) {
+                return Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some(format!(
+                        "🚫 COMMAND BLOCKED: '{}'\n\n\
+                        The shell tool CANNOT be used for npm/npx/node commands.\n\
+                        These commands MUST run inside the sandbox, not on your local machine.\n\n\
+                        ✅ USE THIS INSTEAD: sandbox_run_command with:\n\
+                           command: '{}'\n\n\
+                        Make sure to call sandbox_create first if no sandbox is active.",
+                        command, command
+                    )),
+                    error_hint: Some("Use sandbox_run_command, not shell".to_string()),
+                });
+            }
+        }
 
         if self.security.is_rate_limited() {
             return Ok(ToolResult {

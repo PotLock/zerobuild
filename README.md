@@ -51,7 +51,7 @@ ZeroBuild is **the autonomous build engine** that turns your ideas into working 
 **Key capabilities:**
 
 - 🏗️ **Plan-before-build workflow** — Agent proposes a structured plan; you confirm before any code is written
-- 🔒 **Isolated sandboxes** — Every build runs in an E2B MicroVM or Docker container; your host stays untouched
+- 🔒 **Isolated sandboxes** — Every build runs in an isolated local process sandbox; host credentials and filesystem stay untouched
 - 🌐 **Live preview URLs** — Get public HTTPS links to running web apps
 - 🚀 **GitHub connector** — Connect your GitHub account via OAuth to create repos, push code, open issues, and manage PRs — all from chat
 - 🧠 **Intelligent model routing** — Automatic model recommendations based on task type
@@ -92,14 +92,14 @@ User (Telegram / Discord / Slack / CLI)
 ZeroBuild Runtime (Rust)          ← Unified Agent
   • Receives messages from any channel
   • Plans builds with user confirmation
-  • Runs code in E2B/Docker sandboxes
+  • Runs code in an isolated local process sandbox
   • Integrates with GitHub via OAuth (create repos, issues, PRs, push code)
     │
     ▼
-Sandbox (E2B MicroVM or Docker)   ← Isolated Build Environment
-  • Ubuntu Linux with your chosen runtime
+Local Process Sandbox             ← Isolated Build Environment
+  • Temp directory with cleared environment (no credential leaks)
   • Scaffolds projects, installs dependencies
-  • Runs dev servers with public preview URLs
+  • Runs dev servers on localhost with live preview URLs
 ```
 
 **Universal Agent Design:** ZeroBuild uses a single-tier architecture. The same agent handles conversation, planning, coding, and deployment — no backend proxy. Sandbox tools are always available; the agent uses them when you ask to build something, regardless of channel.
@@ -124,7 +124,7 @@ Sandbox (E2B MicroVM or Docker)   ← Isolated Build Environment
 |---------|-------------|
 | **Build Engine** | Build web, mobile, backend, CLI tools, scripts — anything you can describe |
 | **Multi-Channel** | Telegram, Discord, Slack, Matrix, or CLI — use what you prefer |
-| **Sandbox Provider Choice** | E2B cloud sandboxes (default) or local Docker containers |
+| **Zero-dependency Sandbox** | Isolated local process sandbox — no API key, no Docker daemon required |
 | **Model Advisor** | Recommends optimal models per task (Sonnet 4.5 for code, Kimi for long context, etc.) |
 | **Session Persistence** | SQLite snapshots save project state; resume builds across sessions |
 | **Multi-Provider LLM** | OpenAI, Anthropic, OpenRouter, DeepSeek, Gemini, and more |

@@ -1,6 +1,6 @@
 # AGENTS.md — ZeroBuild Agent Engineering Protocol
 
-> **Forked from ZeroBuild.** ZeroBuild is a customization of the ZeroBuild agent runtime that builds web applications via Telegram using E2B MicroVM sandboxes. This protocol extends ZeroBuild's base AGENTS.md with ZeroBuild-specific rules.
+> **Forked from ZeroBuild.** ZeroBuild is a customization of the ZeroBuild agent runtime that builds web applications via Telegram using an isolated local process sandbox. This protocol extends ZeroBuild's base AGENTS.md with ZeroBuild-specific rules.
 
 This file defines the default working protocol for coding agents in this repository.
 Scope: entire repository (Rust runtime only — Node.js backend removed).
@@ -11,7 +11,7 @@ Scope: entire repository (Rust runtime only — Node.js backend removed).
 
 **ZeroBuild** is a single-tier AI agent system built on ZeroBuild:
 
-- **ZeroBuild Agent** — ZeroBuild Rust runtime. Handles Telegram conversations, proposes plans, writes code directly into E2B sandboxes using built-in E2B tools, and pushes to GitHub.
+- **ZeroBuild Agent** — ZeroBuild Rust runtime. Handles Telegram conversations, proposes plans, writes code into an isolated local process sandbox, and pushes to GitHub.
 
 ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized for performance, efficiency, stability, extensibility, sustainability, and security. ZeroBuild keeps all of that and adds a web-app-building product layer on top.
 
@@ -26,7 +26,7 @@ ZeroBuild (the upstream base) is a Rust-first autonomous agent runtime optimized
 
 ### ZeroBuild-specific extension points
 
-- `src/tools/e2b/` — E2B sandbox tools (8 tools: create, run, write, read, list, preview, snapshot, kill)
+- `src/tools/sandbox/` — local process sandbox tools (8 tools: create, run, write, read, list, preview, snapshot, kill)
 - `src/tools/deploy.rs` — `request_deploy` tool (push to GitHub via REST API)
 - `src/tools/github_ops.rs` — GitHub ops tools (issue, PR, review, connect)
 - `src/gateway/oauth.rs` — GitHub OAuth flow (`/auth/github`, `/auth/github/callback`)
@@ -45,19 +45,20 @@ Telegram User
 ZeroBuild Runtime (Rust)   ← ZeroBuild Agent
   • Runs the conversation loop
   • Proposes plans, waits for user confirmation
-  • Calls E2B tools directly (no backend proxy)
+  • Calls sandbox_* tools directly (no external API needed)
   • Calls github_* tools → GitHub REST API directly
   • Calls request_deploy → GitHub git tree/commit/ref API
     │
     ▼
-E2B MicroVM               ← Isolated build sandbox
-  • Ubuntu, Node.js 20, npm
-  • scaffold → build → preview
+Local Process Sandbox      ← Isolated build sandbox
+  • $TMPDIR/zerobuild-sandbox-{uuid}/
+  • Node.js, npm, npx available from host PATH
+  • scaffold → build → preview (http://localhost:{port})
 ```
 
 ### Why single-tier
 
-1. **Simplicity**: No HTTP proxy layer between the agent and E2B. Fewer moving parts = easier to debug.
+1. **Simplicity**: No external sandbox service. The sandbox is a local process with a restricted environment. Fewer moving parts = easier to debug.
 2. **Security boundary preserved**: OAuth tokens stored in SQLite only, never in logs or agent messages.
 3. **Re-hydration pattern**: SQLite snapshots (`src/store/snapshot.rs`) allow future sessions to restore previous builds.
 4. **Direct GitHub push**: `request_deploy` uses git blobs/tree/commit/ref API — no intermediate service needed.
@@ -105,7 +106,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 
 - Deny-by-default for access and exposure boundaries.
 - Never log secrets, raw tokens, or sensitive payloads.
-- E2B API key read from `E2B_API_KEY` env var first; fallback to config field.
+- Sandbox uses `env_clear()` — host credentials are never visible to child processes.
 - OAuth tokens stored in SQLite only, never passed through agent chat or logs.
 
 ### 3.7 Determinism + Reproducibility
@@ -127,7 +128,7 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 - `src/main.rs` — CLI entrypoint
 - `src/agent/` — orchestration loop
 - `src/providers/` — LLM providers
-- `src/tools/e2b/` — E2B sandbox tools (8 tools)
+- `src/tools/sandbox/` — local process sandbox tools (8 tools)
 - `src/tools/deploy.rs` — request_deploy tool (GitHub REST API)
 - `src/tools/github_ops.rs` — GitHub ops tools (direct GitHub API)
 - `src/gateway/oauth.rs` — GitHub OAuth handlers
@@ -145,30 +146,34 @@ Inherited from ZeroBuild — mandatory. These are implementation constraints, no
 
 ## 5) ZeroBuild-Specific Rules
 
-### 5.1 E2B tool workflow
+### 5.1 Sandbox tool workflow
 
-The ZeroBuild Agent uses these 8 E2B tools to build web apps:
+The ZeroBuild Agent uses these 8 sandbox tools to build web apps:
 
 | Tool | Purpose |
 |------|---------|
-| `e2b_create_sandbox` | Create/resume E2B sandbox (reset=true to start fresh) |
-| `e2b_run_command` | Run shell commands (npm, npx, node, etc.) |
-| `e2b_write_file` | Write file content to sandbox path |
-| `e2b_read_file` | Read file content from sandbox path |
-| `e2b_list_files` | List directory contents |
-| `e2b_get_preview_url` | Get preview URL for running dev server (default port 3000) |
-| `e2b_save_snapshot` | Extract files from sandbox to SQLite (persist project) |
-| `e2b_kill_sandbox` | Kill sandbox when done |
+| `sandbox_create` | Create/resume local sandbox (reset=true to start fresh) |
+| `sandbox_run_command` | Run shell commands (npm, npx, node, etc.) IN SANDBOX |
+| `sandbox_write_file` | Write file content to sandbox path |
+| `sandbox_read_file` | Read file content from sandbox path |
+| `sandbox_list_files` | List directory contents |
+| `sandbox_get_preview_url` | Get preview URL for running dev server (default port 3000) |
+| `sandbox_save_snapshot` | Extract files from sandbox to SQLite (persist project) |
+| `sandbox_kill_sandbox` | Kill sandbox when done |
+
+**⚠️ CRITICAL: Use `sandbox_run_command` for ALL build operations — NEVER use `shell` tool!**
+- `shell` runs LOCALLY in workspace (not sandbox)
+- `sandbox_run_command` runs in the isolated local sandbox
 
 **Recommended build workflow:**
-1. `e2b_create_sandbox` (reset=true if user requests fresh start)
-2. `e2b_run_command` to scaffold (`npx create-next-app`, `npm install`)
-3. `e2b_write_file` to create/edit files
-4. `e2b_read_file` / `e2b_list_files` to inspect code
-5. `e2b_run_command` to start dev server (`npm run dev &`)
+1. `sandbox_create` (reset=true if user requests fresh start)
+2. `sandbox_run_command` to scaffold (`npx create-next-app`, `npm install`)
+3. `sandbox_write_file` to create/edit files
+4. `sandbox_read_file` / `sandbox_list_files` to inspect code
+5. `sandbox_run_command` to start dev server (`npm run dev &`)
 6. **Auto-test:** Run `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` to verify the server responds with 200
-7. `e2b_get_preview_url` (port=3000) to get preview URL
-8. `e2b_save_snapshot` to persist code to SQLite
+7. `sandbox_get_preview_url` (port=3000) to get preview URL
+8. `sandbox_save_snapshot` to persist code to SQLite
 9. Send preview URL to user
 
 **Progress reporting (REQUIRED):**
@@ -177,11 +182,11 @@ Before every significant tool call, the agent MUST send a short, plain-language 
 
 | Tool call | User message |
 |---|---|
-| `e2b_create_sandbox` | "Starting up the build environment..." |
-| `e2b_run_command { npx create-next-app }` | "Creating your project..." |
-| `e2b_run_command { npm install }` | "Installing dependencies..." |
-| `e2b_run_command { npm run dev }` | "Starting the dev server..." |
-| `e2b_get_preview_url` | "Getting your preview link..." |
+| `sandbox_create` | "Starting up the build environment..." |
+| `sandbox_run_command { npx create-next-app }` | "Creating your project..." |
+| `sandbox_run_command { npm install }` | "Installing dependencies..." |
+| `sandbox_run_command { npm run dev }` | "Starting the dev server..." |
+| `sandbox_get_preview_url` | "Getting your preview link..." |
 | `github_push` | "Pushing your code to GitHub..." |
 
 **Rules:**
@@ -195,20 +200,21 @@ The ZeroBuild Agent must always propose and confirm a plan before building. This
 
 Never skip the plan step. Plan-before-build is a core product guarantee.
 
-### 5.3 E2B workspace path
+### 5.3 Sandbox workspace path
 
-Agent workspace inside sandbox: `/home/user/project/`
+Agent workspace inside sandbox: `project/` (relative to sandbox root)
 
-- E2B base template runs as non-root user — workspace **must** be under `/home/user/`.
-- App directory: `/home/user/project/` (Next.js project root here).
-- `npm run build` **must** be run from `/home/user/project/`.
+- The sandbox root is `$TMPDIR/zerobuild-sandbox-{uuid}/`.
+- App directory: `project/` inside sandbox root (Next.js project root here).
+- All paths passed to sandbox tools are relative to the sandbox root — no leading `/` required.
+- `npm run build` **must** be run from the `project/` workdir.
 
 ### 5.4 Next.js project structure
 
 The ZeroBuild Agent must maintain this layout:
 
 ```
-/home/user/project/         ← Next.js project root (package.json here)
+project/                    ← Next.js project root (package.json here)
   app/                      ← App Router: ROUTES ONLY
     layout.tsx
     page.tsx
@@ -239,9 +245,9 @@ When `npm run build` fails:
 **CORRECT procedure:**
 1. Read the exact error message
 2. Identify the specific file
-3. `e2b_read_file` that file
-4. `e2b_write_file` only that file with the targeted fix
-5. Re-run `npm run build` via `e2b_run_command`
+3. `sandbox_read_file` that file
+4. `sandbox_write_file` only that file with the targeted fix
+5. Re-run `npm run build` via `sandbox_run_command`
 
 **FORBIDDEN:**
 - `rm -rf` on any source directory (app/, components/, lib/, public/, src/)
@@ -271,8 +277,8 @@ When a user message contains one of these hashtags or trigger phrases, you MUST 
 | `#issue` / `#issues` / `#bug` / "create issue" / "file issue" / "report bug" | Create GitHub issue | `github_create_issue` | `glob_search`, `file_read` |
 | `#pr` / `#review` / "create PR" / "open PR" / "submit PR" | Create or review PR | `github_create_pr`, `github_review_pr` | `file_write`, `shell` |
 | `#feature` / "new feature" / "feature request" | Create feature issue | `github_create_issue` + `github_push` | `task_plan` (alone) |
-| `#deploy` / `#push` / "deploy" / "push to github" | Push code to GitHub | `github_push` | `e2b_write_file` |
-| `#build` / "build" / "compile" | Build in E2B sandbox | E2B tool workflow (section 5.1) | `shell` (local) |
+| `#deploy` / `#push` / "deploy" / "push to github" | Push code to GitHub | `github_push` | `sandbox_write_file` |
+| `#build` / "build" / "compile" | Build in sandbox | Sandbox tool workflow (section 5.1) | `shell` (local) |
 | `#repo` / "list repos" / "my repositories" | List repositories | `github_list_repos` | `http_request` |
 | `#read` / `#file` / "read file from repo" | Read repo file | `github_read_file` | `file_read` (local) |
 
@@ -280,6 +286,9 @@ When a user message contains one of these hashtags or trigger phrases, you MUST 
 1. When user says "create issue" → call `github_create_issue` (NOT `glob_search` or other tools)
 2. When user says "create PR" → call `github_create_pr` (NOT `file_write` or other tools)
 3. Before any GitHub operation, call `github_connect` first to verify authentication
+4. **NEVER use `shell` tool for npm/npx/node commands** — use `sandbox_run_command` instead
+   - `shell` runs LOCALLY (wrong place for builds)
+   - `sandbox_run_command` runs in the isolated sandbox (correct place for builds)
 
 **Extracting repo context from the message:**
 1. Look for explicit `owner/repo` pattern in the message (e.g. `myorg/myapp`)
@@ -297,7 +306,7 @@ When a user message has **no hashtag**, infer intent from content:
 
 | Message content pattern | Inferred workflow |
 |---|---|
-| Describes a new app, website, tool, or page to build | E2B sandbox build workflow (section 5.1) |
+| Describes a new app, website, tool, or page to build | Sandbox build workflow (section 5.1) |
 | References an existing GitHub repo, issue number, or PR number | GitHub ops workflow — call the relevant tool |
 | Contains a GitHub URL (github.com/...) | Parse context from URL → call the relevant tool |
 | Asks a question about an existing project | Answer directly; do not start building |
@@ -311,12 +320,10 @@ ZeroBuild-specific fields in `ZerobuildConfig`:
 
 | Field | Default | Purpose |
 |-------|---------|---------|
-| `e2b_api_key` | `""` | E2B API key (prefer `E2B_API_KEY` env var) |
-| `e2b_template` | `"base"` | E2B sandbox template |
-| `e2b_timeout_ms` | `600000` | Sandbox timeout (10 minutes) |
 | `github_client_id` | `""` | GitHub OAuth app client ID |
 | `github_client_secret` | `""` | GitHub OAuth app client secret |
-| `db_path` | `"./data/zerobuild.db"` | SQLite database path |
+| `github_oauth_proxy` | official proxy URL | OAuth proxy for GitHub connector |
+| `db_path` | `"~/.zerobuild/zerobuild.db"` | SQLite database path |
 
 ### 5.9 GitHub Ops Language and Content Rules (Required)
 
@@ -396,7 +403,7 @@ This prevents silent infinite retry loops and gives users a way to intervene.
 ## 6) Risk Tiers by Path
 
 - **Low risk**: docs, test changes
-- **Medium risk**: `src/tools/e2b/`, `src/store/`, most `src/**` Rust changes
+- **Medium risk**: `src/tools/sandbox/`, `src/store/`, most `src/**` Rust changes
 - **High risk**: `src/security/**`, `src/runtime/**`, `src/gateway/**`, `src/tools/deploy.rs`, `src/tools/github_ops.rs`, `src/gateway/oauth.rs`, `.github/workflows/**`, access-control boundaries
 
 ---
@@ -424,8 +431,7 @@ This prevents silent infinite retry loops and gives users a way to intervene.
 
 ### 7.3 Architecture Boundary Contract (Required)
 
-- ZeroBuild Agent communicates with E2B directly via HTTP — no proxy layer.
-- E2B API key must not appear in logs, Telegram messages, or tool results.
+- Sandbox runs as a local process with `env_clear()` — no host credentials leak into builds.
 - OAuth tokens must never appear in logs, Telegram messages, or agent tool results.
 - GitHub API calls must use token loaded from `src/store/tokens.rs` — never hardcoded.
 
@@ -453,7 +459,7 @@ cargo test
 
 ### 9.1 Privacy/Sensitive Data (Required)
 
-- Never commit API keys, bot tokens, E2B API keys, OAuth secrets, or user IDs.
+- Never commit API keys, bot tokens, OAuth secrets, or user IDs.
 - Never log user messages, Telegram IDs, prompt content, or OAuth tokens in production.
 - Use neutral project-scoped placeholders in tests and examples.
 
@@ -470,7 +476,7 @@ cargo test
 - Do not hide behavior-changing side effects in refactor commits.
 - Do not include personal identity or sensitive information in any commit.
 - **ZeroBuild-specific**: Do not skip plan confirmation before building.
-- **ZeroBuild-specific**: Do not expose OAuth tokens or E2B API keys in tool results or Telegram messages.
+- **ZeroBuild-specific**: Do not expose OAuth tokens in tool results or Telegram messages.
 - **ZeroBuild-specific**: Do not allow the agent to delete source files or directories when fixing build errors.
 - **ZeroBuild-specific**: Do not re-scaffold (`npx create-next-app`) after the project is already built.
 

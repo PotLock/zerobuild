@@ -25,7 +25,11 @@ impl Tool for SandboxKillTool {
     }
 
     fn description(&self) -> &str {
-        "Terminate the current sandbox. Frees resources and clears the active sandbox_id. \
+        "⚠️ Terminate the current sandbox. Frees resources and clears the active sandbox_id. \
+         \
+         🚨 WARNING: After killing the sandbox, you CANNOT run any build commands (npm, npx) \
+         until you create a new sandbox with sandbox_create. \
+         \
          Any unsaved work will be lost — call sandbox_save_snapshot first if needed. \
          Only call this when explicitly requested or when starting completely fresh."
     }
@@ -52,7 +56,13 @@ impl Tool for SandboxKillTool {
         match self.client.kill_sandbox().await {
             Ok(msg) => Ok(ToolResult {
                 success: true,
-                output: msg,
+                output: format!(
+                    "{}\n\n\
+                    ⚠️  SANDBOX TERMINATED\n\
+                    All build operations (npm/npx) are now DISABLED.\n\
+                    Call sandbox_create first if you want to continue building.",
+                    msg
+                ),
                 error: None,
                 error_hint: None,
             }),
@@ -72,7 +82,7 @@ mod tests {
 
     #[test]
     fn tool_name() {
-        let client = Arc::new(crate::sandbox::e2b::E2bSandboxClient::new(""));
+        let client = Arc::new(crate::sandbox::local::LocalProcessSandboxClient::new());
         assert_eq!(SandboxKillTool::new(client).name(), TOOL_NAME);
     }
 }

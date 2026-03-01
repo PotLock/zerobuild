@@ -101,9 +101,6 @@ parking_lot = "0.12"
 # Async traits
 async-trait = "0.1"
 
-# Docker sandbox provider
-bollard = { version = "0.18", default-features = false }
-
 # HMAC-SHA256 (Zhipu/GLM JWT auth)
 ring = "0.17"
 

@@ -65,11 +65,11 @@ fn validate_issue_title(title: &str) -> Result<(), String> {
     if title.trim().is_empty() {
         return Err("Issue title is required".to_string());
     }
-    
+
     let has_valid_prefix = VALID_ISSUE_PREFIXES
         .iter()
         .any(|prefix| title.trim().starts_with(prefix));
-    
+
     if !has_valid_prefix {
         return Err(format!(
             "Issue title must start with a bracketed type prefix. Valid prefixes: {}. \
@@ -77,7 +77,7 @@ fn validate_issue_title(title: &str) -> Result<(), String> {
             VALID_ISSUE_PREFIXES.join(", ")
         ));
     }
-    
+
     Ok(())
 }
 
@@ -86,21 +86,22 @@ fn validate_labels(labels: &[String]) -> Result<(), String> {
     if labels.is_empty() {
         return Err(
             "At least one label is required. Must include a type label: \
-             feature, bug, chore, docs, security, refactor, test, or perf".to_string()
+             feature, bug, chore, docs, security, refactor, test, or perf"
+                .to_string(),
         );
     }
-    
+
     let has_type_label = labels
         .iter()
         .any(|label| VALID_TYPE_LABELS.contains(&label.as_str()));
-    
+
     if !has_type_label {
         return Err(format!(
             "Must include at least one type label: {}",
             VALID_TYPE_LABELS.join(", ")
         ));
     }
-    
+
     Ok(())
 }
 
@@ -109,20 +110,22 @@ fn validate_pr_title(title: &str) -> Result<(), String> {
     if title.trim().is_empty() {
         return Err("PR title is required".to_string());
     }
-    
+
     // Conventional commit pattern: type(scope): description
     let conventional_pattern = regex::Regex::new(
-        r"^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([^)]+\))?: .+"
-    ).unwrap();
-    
+        r"^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\([^)]+\))?: .+",
+    )
+    .unwrap();
+
     if !conventional_pattern.is_match(title.trim()) {
         return Err(
             "PR title must follow conventional commit format: 'type(scope): description'. \
              Valid types: feat, fix, chore, docs, style, refactor, perf, test, build, ci, revert. \
-             Example: 'feat(auth): add OAuth2 token refresh'".to_string()
+             Example: 'feat(auth): add OAuth2 token refresh'"
+                .to_string(),
         );
     }
-    
+
     Ok(())
 }
 
@@ -144,7 +147,8 @@ fn extract_summary_from_title(title: &str) -> String {
 
 /// Generates a full issue template from a brief summary
 fn generate_issue_template(title: &str, summary: &str) -> String {
-    format!(r#"## Summary
+    format!(
+        r#"## Summary
 {}
 
 ## Problem Statement
@@ -179,12 +183,15 @@ fn generate_issue_template(title: &str, summary: &str) -> String {
 ## Data Hygiene Checks
 - [ ] I removed personal/sensitive data from examples, payloads, and logs.
 - [ ] I used neutral, project-focused wording and placeholders.
-"#, summary.trim())
+"#,
+        summary.trim()
+    )
 }
 
 /// Generates a full PR template from a brief summary
 fn generate_pr_template(title: &str, summary: &str) -> String {
-    format!(r#"## Summary
+    format!(
+        r#"## Summary
 {}
 
 ## Problem
@@ -214,10 +221,45 @@ fn generate_pr_template(title: &str, summary: &str) -> String {
 ## Rollback
 - Revert strategy: [`git revert <commit>` or specific steps]
 - Migration needed on rollback: [yes / no — if yes, describe]
-"#, summary.trim())
+"#,
+        summary.trim()
+    )
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
+
+/// Extract owner and repo from various input formats:
+/// - "owner/repo" (e.g., "potlock/zerobuild")
+/// - "https://github.com/owner/repo"
+/// - "github.com/owner/repo"
+/// Returns (owner, repo) or None if parsing fails
+fn extract_owner_repo_from_input(input: &str) -> Option<(String, String)> {
+    if input.is_empty() {
+        return None;
+    }
+
+    // Handle full URL format: https://github.com/owner/repo
+    if input.contains("github.com/") {
+        let parts: Vec<&str> = input.split("github.com/").collect();
+        if parts.len() >= 2 {
+            let path = parts[1].trim_end_matches('/');
+            let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+            if segments.len() >= 2 {
+                return Some((segments[0].to_string(), segments[1].to_string()));
+            }
+        }
+    }
+
+    // Handle "owner/repo" format
+    if input.contains('/') {
+        let segments: Vec<&str> = input.split('/').filter(|s| !s.is_empty()).collect();
+        if segments.len() >= 2 {
+            return Some((segments[0].to_string(), segments[1].to_string()));
+        }
+    }
+
+    None
+}
 
 /// Load the GitHub token from the local store.
 fn load_token(db_path: &PathBuf) -> Result<crate::store::tokens::GitHubToken, ToolResult> {
@@ -429,6 +471,10 @@ impl Tool for GitHubCreateIssueTool {
     fn description(&self) -> &str {
         "CREATE A GITHUB ISSUE - Use this when user says '#issue', '#bug', 'create issue', or wants to report a bug/request a feature. \
          \
+         WORKFLOW (MUST FOLLOW): \
+         1. First call with confirm:false → Shows preview to user, STOPS and waits for user response \
+         2. After user says 'create it' or 'confirm', call again with confirm:true → Actually creates the issue \
+         \
          TRIGGER PHRASES: '#issue', '#bug', '#feature', 'create issue', 'file issue', 'report bug'. \
          \
          REQUIRED FORMAT (ENFORCED): \
@@ -459,15 +505,19 @@ impl Tool for GitHubCreateIssueTool {
                 },
                 "body": {
                     "type": "string",
-                    "description": "Issue body (Markdown). Should include: ## Summary, ## Problem Statement, ## Proposed Solution, ## Non-goals / Out of Scope, ## Acceptance Criteria, ## Architecture Impact, ## Risk and Rollback, ## Breaking Change, ## Data Hygiene Checks"
+                    "description": "Issue body (Markdown). Should include: ## Summary, ## Problem Statement, ## Proposed Solution, ## Non-goals / Out of Scope, ## Acceptance Criteria, ## Architecture Impact, ## Risk and Rollback, ## Breaking Change, ## Data Hygiene Checks. If not provided, a template will be generated for you."
                 },
                 "labels": {
                     "type": "array",
                     "items": { "type": "string" },
                     "description": "REQUIRED: At least one type label. Valid: feature, bug, chore, docs, security, refactor, test, perf"
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "REQUIRED: Set to false first to preview the issue. After user approves the preview, call again with confirm: true to actually create the issue."
                 }
             },
-            "required": ["repo", "title", "labels"]
+            "required": ["repo", "title", "labels", "confirm"]
         })
     }
 
@@ -478,9 +528,9 @@ impl Tool for GitHubCreateIssueTool {
             Err(e) => return Ok(e),
         };
 
-        let repo = args["repo"].as_str().unwrap_or("").trim().to_string();
+        let repo_input = args["repo"].as_str().unwrap_or("").trim().to_string();
         let title = args["title"].as_str().unwrap_or("").trim().to_string();
-        
+
         // Validate title format
         if let Err(e) = validate_issue_title(&title) {
             return Ok(ToolResult {
@@ -493,15 +543,32 @@ impl Tool for GitHubCreateIssueTool {
                 )),
             });
         }
-        
-        if repo.is_empty() {
+
+        if repo_input.is_empty() {
             return Ok(ToolResult {
                 success: false,
                 output: String::new(),
                 error: Some("repo is required".to_string()),
-                error_hint: None,
+                error_hint: Some(
+                    "Provide repo as: 'owner/repo' or 'https://github.com/owner/repo'".to_string(),
+                ),
             });
         }
+
+        // Extract owner and repo from input (handles "owner/repo" or URL formats)
+        let (owner_from_repo, repo) = match extract_owner_repo_from_input(&repo_input) {
+            Some((o, r)) => (Some(o), r),
+            None => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some(format!("Could not parse owner/repo from: '{}'", repo_input)),
+                    error_hint: Some(
+                        "Use format: 'owner/repo' or 'https://github.com/owner/repo'".to_string(),
+                    ),
+                });
+            }
+        };
 
         // Extract and validate labels
         let labels: Vec<String> = args["labels"]
@@ -512,7 +579,7 @@ impl Tool for GitHubCreateIssueTool {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         if let Err(e) = validate_labels(&labels) {
             return Ok(ToolResult {
                 success: false,
@@ -525,23 +592,68 @@ impl Tool for GitHubCreateIssueTool {
             });
         }
 
-        let owner = match resolve_owner(&args, tok.username.as_deref()) {
-            Ok(o) => o,
-            Err(e) => return Ok(e),
+        // Resolve owner: explicit args > parsed from repo > stored username
+        let owner = if let Some(o) = args["owner"].as_str().filter(|s| !s.is_empty()) {
+            o.to_string()
+        } else if let Some(o) = owner_from_repo {
+            o
+        } else {
+            match tok.username.as_deref().filter(|s| !s.is_empty()) {
+                Some(u) => u.to_string(),
+                None => {
+                    return Ok(ToolResult {
+                        success: false,
+                        output: String::new(),
+                        error: Some("owner is required (could not determine from repo or authenticated user)".to_string()),
+                        error_hint: Some("Provide owner explicitly or use format: 'owner/repo'".to_string()),
+                    });
+                }
+            }
         };
 
-        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues");
-        
         // Get body - auto-generate template if missing or insufficient
         let body_content = args["body"].as_str().unwrap_or("").trim().to_string();
-        let final_body = if body_content.is_empty() || check_required_sections(&body_content, REQUIRED_ISSUE_SECTIONS).len() > 5 {
+        let final_body = if body_content.is_empty()
+            || check_required_sections(&body_content, REQUIRED_ISSUE_SECTIONS).len() > 5
+        {
             // Auto-generate template from title/summary
             let summary = extract_summary_from_title(&title);
             generate_issue_template(&title, &summary)
         } else {
             body_content
         };
-        
+
+        // Check if user confirmed
+        let confirmed = args["confirm"].as_bool().unwrap_or(false);
+        if !confirmed {
+            // Return preview for user approval
+            let labels_str = labels.join(", ");
+            let preview = format!(
+                "📋 ISSUE PREVIEW — Please review before creating\n\
+                 ═══════════════════════════════════════════\n\n\
+                 **Repository:** {}/{}\n\
+                 **Title:** {}\n\
+                 **Labels:** {}\n\n\
+                 **Body:**\n\
+                 ```markdown\n{}\n```\n\n\
+                 ─────────────────────────────────────────────\n\n\
+                 ⏳ WAITING FOR YOUR CONFIRMATION\n\n\
+                 Reply \"create it\" or \"confirm\" to CREATE this issue\n\
+                 Reply with corrections to EDIT the information\n\
+                 Reply \"cancel\" to ABORT",
+                owner, repo, title, labels_str, final_body
+            );
+            // Return as error to stop agent loop - user must explicitly confirm
+            return Ok(ToolResult {
+                success: false,
+                output: preview,
+                error: Some("⏳ PREVIEW MODE — Issue not created yet. Waiting for user confirmation. DO NOT auto-confirm. Ask the user to review and respond.".to_string()),
+                error_hint: Some("User must explicitly say 'create it' or 'confirm' before proceeding. Do NOT call this tool again with confirm:true until user responds.".to_string()),
+            });
+        }
+
+        // User confirmed - create the issue
+        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues");
         let mut body = json!({ "title": title, "body": final_body });
         if !labels.is_empty() {
             body["labels"] = json!(labels);
@@ -558,7 +670,7 @@ impl Tool for GitHubCreateIssueTool {
 
         Ok(ToolResult {
             success: true,
-            output: format!("Issue #{issue_num} created: {issue_url}"),
+            output: format!("✅ Issue #{issue_num} created: {issue_url}"),
             error: None,
             error_hint: None,
         })
@@ -585,6 +697,10 @@ impl Tool for GitHubCreatePRTool {
 
     fn description(&self) -> &str {
         "CREATE A GITHUB PULL REQUEST - Use this when user says '#pr', '#pullrequest', 'create PR', or wants to submit code for review. \
+         \
+         WORKFLOW (MUST FOLLOW): \
+         1. First call with confirm:false → Shows preview to user, STOPS and waits for user response \
+         2. After user says 'create it' or 'confirm', call again with confirm:true → Actually creates the PR \
          \
          TRIGGER PHRASES: '#pr', '#pullrequest', 'create PR', 'open PR', 'submit PR', 'make pull request'. \
          \
@@ -614,9 +730,13 @@ impl Tool for GitHubCreatePRTool {
                     "type": "array",
                     "items": { "type": "string" },
                     "description": "REQUIRED: At least one type label. Valid: feature, bug, chore, docs, security, refactor, test, perf. Also recommended: size labels (size: XS/S/M/L/XL)"
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "REQUIRED: Set to false first to preview the PR. After user approves the preview, call again with confirm: true to actually create the PR."
                 }
             },
-            "required": ["repo", "title", "head", "labels"]
+            "required": ["repo", "title", "head", "labels", "confirm"]
         })
     }
 
@@ -627,7 +747,7 @@ impl Tool for GitHubCreatePRTool {
             Err(e) => return Ok(e),
         };
 
-        let repo = args["repo"].as_str().unwrap_or("").trim().to_string();
+        let repo_input = args["repo"].as_str().unwrap_or("").trim().to_string();
         let title = args["title"].as_str().unwrap_or("").trim().to_string();
         let head = args["head"].as_str().unwrap_or("").trim().to_string();
 
@@ -645,14 +765,31 @@ impl Tool for GitHubCreatePRTool {
             });
         }
 
-        if repo.is_empty() || head.is_empty() {
+        if repo_input.is_empty() || head.is_empty() {
             return Ok(ToolResult {
                 success: false,
                 output: String::new(),
                 error: Some("repo and head are required".to_string()),
-                error_hint: None,
+                error_hint: Some(
+                    "Provide repo as: 'owner/repo' or 'https://github.com/owner/repo'".to_string(),
+                ),
             });
         }
+
+        // Extract owner and repo from input (handles "owner/repo" or URL formats)
+        let (owner_from_repo, repo) = match extract_owner_repo_from_input(&repo_input) {
+            Some((o, r)) => (Some(o), r),
+            None => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some(format!("Could not parse owner/repo from: '{}'", repo_input)),
+                    error_hint: Some(
+                        "Use format: 'owner/repo' or 'https://github.com/owner/repo'".to_string(),
+                    ),
+                });
+            }
+        };
 
         // Extract and validate labels
         let labels: Vec<String> = args["labels"]
@@ -663,7 +800,7 @@ impl Tool for GitHubCreatePRTool {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         if let Err(e) = validate_labels(&labels) {
             return Ok(ToolResult {
                 success: false,
@@ -677,17 +814,71 @@ impl Tool for GitHubCreatePRTool {
             });
         }
 
-        let owner = match resolve_owner(&args, tok.username.as_deref()) {
-            Ok(o) => o,
-            Err(e) => return Ok(e),
+        // Resolve owner: explicit args > parsed from repo > stored username
+        let owner = if let Some(o) = args["owner"].as_str().filter(|s| !s.is_empty()) {
+            o.to_string()
+        } else if let Some(o) = owner_from_repo {
+            o
+        } else {
+            match tok.username.as_deref().filter(|s| !s.is_empty()) {
+                Some(u) => u.to_string(),
+                None => {
+                    return Ok(ToolResult {
+                        success: false,
+                        output: String::new(),
+                        error: Some("owner is required (could not determine from repo or authenticated user)".to_string()),
+                        error_hint: Some("Provide owner explicitly or use format: 'owner/repo'".to_string()),
+                    });
+                }
+            }
         };
         let base = args["base"].as_str().unwrap_or("main").to_string();
 
-        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls");
-        let mut body = json!({ "title": title, "head": head, "base": base });
-        if let Some(v) = args["body"].as_str() {
-            body["body"] = json!(v);
+        // Get body - auto-generate template if missing or insufficient
+        let body_content = args["body"].as_str().unwrap_or("").trim().to_string();
+        let final_body = if body_content.is_empty()
+            || check_required_sections(&body_content, REQUIRED_PR_SECTIONS).len() > 5
+        {
+            // Auto-generate template from title/summary
+            let summary = extract_summary_from_title(&title);
+            generate_pr_template(&title, &summary)
+        } else {
+            body_content
+        };
+
+        // Check if user confirmed
+        let confirmed = args["confirm"].as_bool().unwrap_or(false);
+        if !confirmed {
+            // Return preview for user approval
+            let labels_str = labels.join(", ");
+            let preview = format!(
+                "📋 PULL REQUEST PREVIEW — Please review before creating\n\
+                 ═══════════════════════════════════════════════\n\n\
+                 **Repository:** {}/{}\n\
+                 **Title:** {}\n\
+                 **Branch:** {} → {}\n\
+                 **Labels:** {}\n\n\
+                 **Body:**\n\
+                 ```markdown\n{}\n```\n\n\
+                 ─────────────────────────────────────────────\n\n\
+                 ⏳ WAITING FOR YOUR CONFIRMATION\n\n\
+                 Reply \"create it\" or \"confirm\" to CREATE this PR\n\
+                 Reply with corrections to EDIT the information\n\
+                 Reply \"cancel\" to ABORT",
+                owner, repo, title, head, base, labels_str, final_body
+            );
+            // Return as error to stop agent loop - user must explicitly confirm
+            return Ok(ToolResult {
+                success: false,
+                output: preview,
+                error: Some("⏳ PREVIEW MODE — Pull Request not created yet. Waiting for user confirmation. DO NOT auto-confirm. Ask the user to review and respond.".to_string()),
+                error_hint: Some("User must explicitly say 'create it' or 'confirm' before proceeding. Do NOT call this tool again with confirm:true until user responds.".to_string()),
+            });
         }
+
+        // User confirmed - create the PR
+        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls");
+        let mut body = json!({ "title": title, "head": head, "base": base, "body": final_body });
 
         let result = github_post_api(&tok.token, &url, body).await?;
         if !result.success {
@@ -707,7 +898,7 @@ impl Tool for GitHubCreatePRTool {
 
         Ok(ToolResult {
             success: true,
-            output: format!("Pull request #{pr_num} created: {pr_url}"),
+            output: format!("✅ Pull request #{pr_num} created: {pr_url}"),
             error: None,
             error_hint: None,
         })
@@ -1404,6 +1595,10 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
     fn description(&self) -> &str {
         "Create a GitHub issue with auto-extracted labels from hashtags. \
          \
+         WORKFLOW (MUST FOLLOW): \
+         1. First call with confirm:false → Shows preview to user, STOPS and waits for user response \
+         2. After user says 'create it' or 'confirm', call again with confirm:true → Actually creates the issue \
+         \
          REQUIRED FORMAT (ENFORCED): \
          - Title MUST start with bracketed prefix: [Feature]:, [Bug]:, [Chore]:, [Docs]:, [Security]:, [Refactor]:, [Test]:, or [Perf]: \
          - At least one hashtag type label is REQUIRED in the message (#feature, #bug, #chore, #docs, #security, #refactor, #test, #perf) \
@@ -1420,9 +1615,13 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
                 "owner": { "type": "string", "description": "Repository owner. Defaults to authenticated user." },
                 "message": { "type": "string", "description": "Message with hashtag labels. Must include at least one type hashtag: #feature, #bug, #chore, #docs, #security, #refactor, #test, #perf. Example: '#bug [Bug]: Login not working'" },
                 "title": { "type": "string", "description": "Optional explicit title. If provided, MUST use format: [Feature]: ..., [Bug]: ..., etc. Extracted from message if omitted." },
-                "body": { "type": "string", "description": "Optional issue body (Markdown). Should follow standard template with required sections." }
+                "body": { "type": "string", "description": "Optional issue body (Markdown). Should follow standard template with required sections." },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "REQUIRED: Set to false first to preview the issue. After user approves the preview, call again with confirm: true to actually create the issue."
+                }
             },
-            "required": ["repo", "message"]
+            "required": ["repo", "message", "confirm"]
         })
     }
 
@@ -1433,24 +1632,55 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
             Err(e) => return Ok(e),
         };
 
-        let repo = args["repo"].as_str().unwrap_or("").trim().to_string();
+        let repo_input = args["repo"].as_str().unwrap_or("").trim().to_string();
         let message = args["message"].as_str().unwrap_or("").trim().to_string();
-        if repo.is_empty() || message.is_empty() {
+        if repo_input.is_empty() || message.is_empty() {
             return Ok(ToolResult {
                 success: false,
                 output: String::new(),
                 error: Some("repo and message are required".to_string()),
-                error_hint: None,
+                error_hint: Some(
+                    "Provide repo as: 'owner/repo' or 'https://github.com/owner/repo'".to_string(),
+                ),
             });
         }
 
-        let owner = match resolve_owner(&args, tok.username.as_deref()) {
-            Ok(o) => o,
-            Err(e) => return Ok(e),
+        // Extract owner and repo from input (handles "owner/repo" or URL formats)
+        let (owner_from_repo, repo) = match extract_owner_repo_from_input(&repo_input) {
+            Some((o, r)) => (Some(o), r),
+            None => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some(format!("Could not parse owner/repo from: '{}'", repo_input)),
+                    error_hint: Some(
+                        "Use format: 'owner/repo' or 'https://github.com/owner/repo'".to_string(),
+                    ),
+                });
+            }
         };
-        
+
+        // Resolve owner: explicit args > parsed from repo > stored username
+        let owner = if let Some(o) = args["owner"].as_str().filter(|s| !s.is_empty()) {
+            o.to_string()
+        } else if let Some(o) = owner_from_repo {
+            o
+        } else {
+            match tok.username.as_deref().filter(|s| !s.is_empty()) {
+                Some(u) => u.to_string(),
+                None => {
+                    return Ok(ToolResult {
+                        success: false,
+                        output: String::new(),
+                        error: Some("owner is required (could not determine from repo or authenticated user)".to_string()),
+                        error_hint: Some("Provide owner explicitly or use format: 'owner/repo'".to_string()),
+                    });
+                }
+            }
+        };
+
         let labels = extract_hashtags(&message);
-        
+
         // Validate that at least one type label is present
         if let Err(e) = validate_labels(&labels) {
             return Ok(ToolResult {
@@ -1463,7 +1693,7 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
                 error_hint: Some("Example: '#bug [Bug]: Login returns 500 error' or '#feature [Feature]: Add dark mode'".to_string()),
             });
         }
-        
+
         let title = if let Some(t) = args["title"].as_str().filter(|s| !s.is_empty()) {
             t.to_string()
         } else {
@@ -1482,7 +1712,7 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
                 error_hint: None,
             });
         }
-        
+
         // Validate title format
         if let Err(e) = validate_issue_title(&title) {
             return Ok(ToolResult {
@@ -1498,18 +1728,49 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
             });
         }
 
-        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues");
-        
         // Get body - auto-generate template if missing or insufficient
         let body_content = args["body"].as_str().unwrap_or("").trim().to_string();
-        let final_body = if body_content.is_empty() || check_required_sections(&body_content, REQUIRED_ISSUE_SECTIONS).len() > 5 {
+        let final_body = if body_content.is_empty()
+            || check_required_sections(&body_content, REQUIRED_ISSUE_SECTIONS).len() > 5
+        {
             // Auto-generate template from title
             let summary = extract_summary_from_title(&title);
             generate_issue_template(&title, &summary)
         } else {
             body_content
         };
-        
+
+        // Check if user confirmed
+        let confirmed = args["confirm"].as_bool().unwrap_or(false);
+        if !confirmed {
+            // Return preview for user approval
+            let labels_str = labels.join(", ");
+            let preview = format!(
+                "📋 ISSUE PREVIEW — Please review before creating\n\
+                 ═══════════════════════════════════════════\n\n\
+                 **Repository:** {}/{}\n\
+                 **Title:** {}\n\
+                 **Labels:** {}\n\n\
+                 **Body:**\n\
+                 ```markdown\n{}\n```\n\n\
+                 ─────────────────────────────────────────────\n\n\
+                 ⏳ WAITING FOR YOUR CONFIRMATION\n\n\
+                 Reply \"create it\" or \"confirm\" to CREATE this issue\n\
+                 Reply with corrections to EDIT the information\n\
+                 Reply \"cancel\" to ABORT",
+                owner, repo, title, labels_str, final_body
+            );
+            // Return as error to stop agent loop - user must explicitly confirm
+            return Ok(ToolResult {
+                success: false,
+                output: preview,
+                error: Some("⏳ PREVIEW MODE — Issue not created yet. Waiting for user confirmation. DO NOT auto-confirm. Ask the user to review and respond.".to_string()),
+                error_hint: Some("User must explicitly say 'create it' or 'confirm' before proceeding. Do NOT call this tool again with confirm:true until user responds.".to_string()),
+            });
+        }
+
+        // User confirmed - create the issue
+        let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues");
         let mut body = json!({ "title": title, "body": final_body });
         if !labels.is_empty() {
             body["labels"] = json!(labels);
@@ -1527,7 +1788,7 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
 
         Ok(ToolResult {
             success: true,
-            output: format!("Issue #{issue_num} created: {issue_url} (labels: {labels_str})"),
+            output: format!("✅ Issue #{issue_num} created: {issue_url} (labels: {labels_str})"),
             error: None,
             error_hint: None,
         })

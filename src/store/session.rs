@@ -1,4 +1,4 @@
-//! Sandbox session persistence: track the current E2B sandbox_id so it can be
+//! Sandbox session persistence: track the current sandbox_id so it can be
 //! resumed across agent restarts.
 
 use anyhow::Result;

@@ -1,4 +1,4 @@
-//! `sandbox_create` tool — create or reset a sandbox (E2B or Docker).
+//! `sandbox_create` tool — create or reset a local process sandbox.
 
 use crate::sandbox::SandboxClient;
 use crate::tools::traits::{Tool, ToolResult};
@@ -35,10 +35,16 @@ impl Tool for SandboxCreateTool {
     }
 
     fn description(&self) -> &str {
-        "Create a new sandbox (cloud MicroVM or local Docker container) for running code. \
+        "🚀 Create a new SANDBOX (isolated temp directory) for running code. \
+         \
+         ⚠️ This creates an ISOLATED environment — NOT your local machine. \
+         All build operations (npm, npx, node) must run INSIDE this sandbox via `sandbox_run_command`. \
+         \
          Pass reset=true to kill any existing sandbox and start fresh. \
-         Returns the sandbox/container ID — all other sandbox_* tools use this automatically. \
-         Call this before any file or command operations."
+         Returns the sandbox ID — all other sandbox_* tools use this automatically. \
+         Call this before any file or command operations. \
+         \
+         ❌ DO NOT use `shell` tool for npm/npx/node — it runs LOCALLY, not in sandbox!"
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -84,12 +90,17 @@ impl Tool for SandboxCreateTool {
                 error: None,
                 error_hint: None,
             }),
-            Err(e) => Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some(format!("Failed to create sandbox: {e}")),
-                error_hint: None,
-            }),
+            Err(e) => {
+                let err_msg = format!("{e}");
+                Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some(format!("🚨 SANDBOX CREATION FAILED: {err_msg}")),
+                    error_hint: Some(
+                        "Sandbox creation failed. STOP: Do not proceed with file_write or shell. Fix the sandbox issue first.".to_string(),
+                    ),
+                })
+            }
         }
     }
 }
@@ -101,7 +112,7 @@ mod tests {
     #[test]
     fn tool_name() {
         // Use a mock client that always fails (empty client)
-        let client = Arc::new(crate::sandbox::e2b::E2bSandboxClient::new(""));
+        let client = Arc::new(crate::sandbox::local::LocalProcessSandboxClient::new());
         let tool = SandboxCreateTool::new(client, "code-interpreter-v1", 600_000);
         assert_eq!(tool.name(), TOOL_NAME);
     }

@@ -39,21 +39,14 @@ zerobuild onboard \
   --api-key "sk-or-v1-..." \
   --provider openrouter \
   --model "anthropic/claude-sonnet-4" \
-  --e2b-api-key "e2b_..." \
   --github-client-id "Iv1.xxx" \
   --github-client-secret "xxx"
-
-# Docker instead of E2B
-zerobuild onboard \
-  --docker-image "node:20-slim"
 ```
 
 **Options:**
 - `--api-key <KEY>` — Provider API key
 - `--provider <ID>` — Provider ID (openrouter, anthropic, openai, etc.)
 - `--model <MODEL>` — Default model ID
-- `--e2b-api-key <KEY>` — E2B API key for cloud sandboxes
-- `--docker-image <IMAGE>` — Docker image for local sandboxes
 - `--github-client-id <ID>` — GitHub OAuth app client ID (for repo creation, push, issues, PRs)
 - `--github-client-secret <SECRET>` — GitHub OAuth app secret (for repo creation, push, issues, PRs)
 - `--interactive` — Interactive setup wizard
@@ -237,7 +230,6 @@ identity = "@yourbuildbot"
 token = "..."
 
 [zerobuild]
-e2b_api_key = "e2b_..."
 # GitHub connector — leave empty to use official OAuth Proxy (recommended)
 github_client_id = ""
 github_client_secret = ""
@@ -248,7 +240,6 @@ db_path = "./data/zerobuild.db"
 
 | Variable | Purpose |
 |----------|---------|
-| `E2B_API_KEY` | E2B sandbox API key |
 | `OPENROUTER_API_KEY` | OpenRouter API key |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI API key |

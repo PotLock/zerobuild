@@ -1,10 +1,8 @@
 //! Sandbox tools for the ZeroBuild Agent.
 //!
-//! Provides 8 provider-agnostic tools that work with both E2B cloud sandboxes
-//! and local Docker containers. The tools are thin delegators to the
-//! [`SandboxClient`] trait implementations.
-//!
-//! API-agnostic: All HTTP/Docker logic lives in [`crate::sandbox`] modules.
+//! Provides 8 tools backed by [`crate::sandbox::local::LocalProcessSandboxClient`]
+//! — a native process sandbox that requires no external API key or Docker daemon.
+//! The tools are thin delegators to the [`SandboxClient`] trait.
 
 pub mod command;
 pub mod create;

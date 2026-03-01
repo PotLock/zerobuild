@@ -6,9 +6,6 @@ Complete setup instructions for running your own ZeroBuild instance.
 
 - Rust 1.80+ (`rustc --version`)
 - Git
-- Either:
-  - **E2B API Key** (recommended for cloud sandboxes) — get from [e2b.dev](https://e2b.dev)
-  - **Docker** (for local sandboxes)
 
 ## Quick Setup
 
@@ -69,30 +66,11 @@ Skip channel setup and use the agent directly:
 zerobuild agent
 ```
 
-### 2. Sandbox Provider (Choose One)
+### 2. Sandbox
 
-#### Option A: E2B Cloud Sandboxes (Recommended)
+ZeroBuild uses an **isolated local process sandbox** automatically — no API key, no Docker daemon required. Every build runs in a temp directory (`$TMPDIR/zerobuild-sandbox-<uuid>/`) with a cleared environment to prevent credential leaks.
 
-E2B provides ephemeral Linux MicroVMs in the cloud — fast, isolated, with public preview URLs for web apps.
-
-```bash
-# Get your API key from https://e2b.dev/dashboard
-export E2B_API_KEY="e2b_..."
-
-# Or add to config during onboarding
-./target/release/zerobuild onboard --e2b-api-key "e2b_..."
-```
-
-#### Option B: Local Docker Sandboxes
-
-If you prefer local sandboxes or don't have an E2B key:
-
-```bash
-# Ensure Docker is running
-./target/release/zerobuild onboard --docker-image "node:20-slim"
-```
-
-ZeroBuild auto-detects: if `E2B_API_KEY` is set, it uses E2B; otherwise tries Docker.
+No configuration needed. The sandbox is always available.
 
 ### 3. LLM Provider Setup
 
@@ -217,7 +195,6 @@ enabled = false
 token = "xoxb-..."
 
 [zerobuild]
-e2b_api_key = "e2b_..."  # or docker_image = "node:20-slim"
 # GitHub OAuth - leave empty to use official proxy (recommended)
 github_client_id = ""
 github_client_secret = ""
@@ -262,8 +239,8 @@ Try these example requests to test different build types:
 
 ### Sandbox not starting
 
-- Check `E2B_API_KEY` is set correctly
-- Or ensure Docker is running for local mode
+- Check that `$TMPDIR` has available disk space
+- Ensure the OS can create directories under the temp path
 
 ### Channel not responding
 

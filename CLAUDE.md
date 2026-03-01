@@ -8,7 +8,7 @@ Scope: entire repository.
 **This repository is ZeroBuild** — a Telegram-native web application builder forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
 
 **ZeroBuild** is a single-tier AI agent system:
-- **ZeroBuild Agent** (Rust / ZeroBuild runtime) — handles Telegram conversations, proposes plans, builds Next.js web apps directly in E2B sandboxes, calls GitHub ops tools, and pushes to GitHub
+- **ZeroBuild Agent** (Rust / ZeroBuild runtime) — handles Telegram conversations, proposes plans, builds Next.js web apps in isolated local sandboxes, calls GitHub ops tools, and pushes to GitHub
 
 **ZeroBuild** (the underlying runtime) is a Rust-first autonomous agent runtime optimized for:
 
@@ -33,7 +33,7 @@ Key ZeroBuild extension points:
 
 Key ZeroBuild extension points:
 
-- `src/tools/create_job.rs` — `create_job` tool (agent → E2B sandbox)
+- `src/tools/sandbox/` — sandbox tools (create, run, write, read, list, preview, snapshot, kill)
 - `src/tools/deploy.rs` — `request_deploy` tool (GitHub push)
 - `src/tools/github_ops.rs` — GitHub ops tools (create/edit/close issue, PR, review)
 - `src/gateway/api.rs` — `/internal/notify` endpoint
@@ -167,7 +167,7 @@ Required:
 ### Key ZeroBuild Agent modules
 
 - `src/agent/` — orchestration loop
-- `src/tools/e2b/` — E2B sandbox tools (create, run, write, read, list, preview, snapshot, kill)
+- `src/tools/sandbox/` — sandbox tools (create, run, write, read, list, preview, snapshot, kill)
 - `src/tools/deploy.rs` — `request_deploy` tool (GitHub push via git trees API)
 - `src/tools/github_ops.rs` — GitHub ops tools
 - `src/gateway/oauth.rs` — GitHub OAuth handlers

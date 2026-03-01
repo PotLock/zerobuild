@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn tool_name() {
-        let client = Arc::new(crate::sandbox::e2b::E2bSandboxClient::new(""));
+        let client = Arc::new(crate::sandbox::local::LocalProcessSandboxClient::new());
         assert_eq!(SandboxGetPreviewUrlTool::new(client).name(), TOOL_NAME);
     }
 }

@@ -465,7 +465,6 @@ async fn run_agentic_background(
             None,
             None,
             &[],
-        ),
     )
     .await;
 

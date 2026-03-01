@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn tool_names() {
-        let client = Arc::new(crate::sandbox::e2b::E2bSandboxClient::new(""));
+        let client = Arc::new(crate::sandbox::local::LocalProcessSandboxClient::new());
         assert_eq!(
             SandboxWriteFileTool::new(client.clone()).name(),
             "sandbox_write_file"

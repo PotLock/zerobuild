@@ -195,71 +195,23 @@ pub fn default_tools_with_runtime(
     ]
 }
 
-/// Create sandbox and deployment tools (E2B/Docker + GitHub).
+/// Create sandbox and deployment tools (local process sandbox + GitHub).
 ///
-/// Auto-detects the sandbox provider:
-/// - E2B if `E2B_API_KEY` env var or `e2b_api_key` config is set
-/// - Docker (local) if E2B key is not available and Docker is accessible
-///
-/// Returns empty sandbox tools if neither provider is available.
+/// Uses `LocalProcessSandboxClient` — no external API key or Docker daemon required.
 pub fn sandbox_tools(
     zerobuild_config: Arc<crate::config::ZerobuildConfig>,
-    gateway_base_url: String,
+    _gateway_base_url: String,
 ) -> Vec<Box<dyn Tool>> {
-    use crate::sandbox::{docker::DockerSandboxClient, e2b::E2bSandboxClient, SandboxClient};
+    use crate::sandbox::local::LocalProcessSandboxClient;
 
-    let api_key =
-        std::env::var("E2B_API_KEY").unwrap_or_else(|_| zerobuild_config.e2b_api_key.clone());
-
-    let sandbox: Arc<dyn SandboxClient> = if api_key.is_empty() {
-        match DockerSandboxClient::new(&zerobuild_config.docker_image) {
-            Ok(client) => {
-                tracing::info!("Using Docker sandbox provider");
-                Arc::new(client)
-            }
-            Err(e) => {
-                tracing::error!(
-                    "Docker unavailable and E2B_API_KEY not set: {e}. \
-                     Sandbox tools will be unavailable."
-                );
-                // Return only GitHub tools if no sandbox provider is available
-                return vec![
-                    Box::new(GitHubPushTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubCreateIssueTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubCreateIssueWithHashtagsTool::new(
-                        zerobuild_config.clone(),
-                    )),
-                    Box::new(GitHubEditIssueTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubCloseIssueTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubCreatePRTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubReviewPRTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubReviewPRWithChecklistTool::new(
-                        zerobuild_config.clone(),
-                    )),
-                    Box::new(GitHubListReposTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubListIssuesTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubListPRsTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubGetIssueTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubGetPRTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubAnalyzePRTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubUploadImageTool::new(zerobuild_config.clone())),
-                    Box::new(GitHubConnectTool::new(zerobuild_config)),
-                ];
-            }
-        }
-    } else {
-        tracing::info!("Using E2B sandbox provider");
-        Arc::new(E2bSandboxClient::new(api_key))
-    };
+    tracing::info!("Using local process sandbox provider");
+    let sandbox: std::sync::Arc<dyn crate::sandbox::SandboxClient> =
+        Arc::new(LocalProcessSandboxClient::new());
 
     let db_path = std::path::PathBuf::from(&zerobuild_config.db_path);
 
     vec![
-        Box::new(SandboxCreateTool::new(
-            sandbox.clone(),
-            zerobuild_config.e2b_template.clone(),
-            zerobuild_config.e2b_timeout_ms,
-        )),
+        Box::new(SandboxCreateTool::new(sandbox.clone(), "", 600_000)),
         Box::new(SandboxRunCommandTool::new(sandbox.clone())),
         Box::new(SandboxWriteFileTool::new(sandbox.clone())),
         Box::new(SandboxReadFileTool::new(sandbox.clone())),

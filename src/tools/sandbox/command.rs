@@ -25,9 +25,13 @@ impl Tool for SandboxRunCommandTool {
     }
 
     fn description(&self) -> &str {
-        "Run a shell command inside the sandbox. \
+        "🚀 Run a shell command INSIDE THE SANDBOX (isolated environment). \
+         \
+         ✅ REQUIRED for: npm install, npx create-next-app, npm run build, npm run dev, npx, node, python \
+         \
+         ❌ DO NOT use `shell` tool for build operations — it runs locally, not in sandbox! \
+         \
          Returns stdout, stderr, and exit_code. \
-         Use this for: npm install, npx create-next-app, npm run build, npm run dev &, etc. \
          Requires an active sandbox (call sandbox_create first)."
     }
 
@@ -110,12 +114,30 @@ impl Tool for SandboxRunCommandTool {
                     })
                 }
             }
-            Err(e) => Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some(format!("Failed to run command: {e}")),
-                error_hint: None,
-            }),
+            Err(e) => {
+                let err_msg = format!("{e}");
+                // Check if it's a "no active sandbox" error
+                let error_hint = if err_msg.contains("No active sandbox") {
+                    "🚨 SANDBOX NOT AVAILABLE\n\
+                    \n\
+                    The sandbox is not active. Possible reasons:\n\
+                    1. sandbox_create was not called\n\
+                    2. sandbox was killed\n\
+                    \n\
+                    ✅ What to do:\n\
+                    - Call sandbox_create with reset=true to create a new sandbox\n\
+                    \n\
+                    ❌ DO NOT use file_write or shell as fallback - this will create files on your local machine!".to_string()
+                } else {
+                    format!("Sandbox command failed: {e}")
+                };
+                Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some(err_msg),
+                    error_hint: Some(error_hint),
+                })
+            }
         }
     }
 }
@@ -126,7 +148,7 @@ mod tests {
 
     #[test]
     fn tool_name() {
-        let client = Arc::new(crate::sandbox::e2b::E2bSandboxClient::new(""));
+        let client = Arc::new(crate::sandbox::local::LocalProcessSandboxClient::new());
         assert_eq!(SandboxRunCommandTool::new(client).name(), TOOL_NAME);
     }
 }

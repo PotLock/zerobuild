@@ -1632,6 +1632,38 @@ async fn process_channel_message(
         (None, None)
     };
 
+    // For non-streaming channels, create a progress channel to send progress messages
+    // directly via channel.send() instead of draft updates
+    let (progress_tx, progress_rx) = if !use_streaming && target_channel.is_some() {
+        let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
+        (Some(tx), Some(rx))
+    } else {
+        (None, None)
+    };
+
+    // Spawn progress sender task for non-streaming channels
+    let progress_handle =
+        if let (Some(mut rx), Some(channel_ref)) = (progress_rx, target_channel.as_ref()) {
+            let channel = Arc::clone(channel_ref);
+            let reply_target = msg.reply_target.clone();
+            let thread_ts = msg.thread_ts.clone();
+            Some(tokio::spawn(async move {
+                while let Some(progress) = rx.recv().await {
+                    // Skip sentinel values
+                    if progress.contains('\x00') {
+                        continue;
+                    }
+                    let send_msg =
+                        SendMessage::new(&progress, &reply_target).in_thread(thread_ts.clone());
+                    if let Err(e) = channel.send(&send_msg).await {
+                        tracing::debug!("Progress send failed: {e}");
+                    }
+                }
+            }))
+        } else {
+            None
+        };
+
     let draft_message_id = if use_streaming {
         if let Some(channel) = target_channel.as_ref() {
             match channel

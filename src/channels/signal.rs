@@ -115,10 +115,7 @@ impl SignalChannel {
                 .get("filename")
                 .and_then(|v| v.as_str())
                 .unwrap_or("attachment");
-            let id = att
-                .get("id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let id = att.get("id").and_then(|v| v.as_str()).unwrap_or("");
 
             // Only process text-based attachments
             if !content_type.starts_with("text/") && content_type != "application/json" {
@@ -132,11 +129,8 @@ impl SignalChannel {
                 if path.exists() {
                     match std::fs::read_to_string(&path) {
                         Ok(content) => {
-                            parts.push(format!(
-                                "[Attachment: {}]\n```\n{}\n```",
-                                filename,
-                                content
-                            ));
+                            parts
+                                .push(format!("[Attachment: {}]\n```\n{}\n```", filename, content));
                         }
                         Err(e) => {
                             tracing::warn!(path = %path.display(), error = %e, "Failed to read Signal attachment");
@@ -148,10 +142,7 @@ impl SignalChannel {
             }
 
             // File not found or couldn't read, just mention it
-            parts.push(format!(
-                "[Attachment: {}] ({})",
-                filename, content_type
-            ));
+            parts.push(format!("[Attachment: {}] ({})", filename, content_type));
         }
 
         parts.join("\n\n")

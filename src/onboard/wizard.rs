@@ -2892,112 +2892,15 @@ async fn setup_connectors() -> Result<crate::config::ZerobuildConfig> {
     println!(
         "  {} {}",
         style("Sandbox (Code Execution)").white().bold(),
-        style("— Isolated environment for running and previewing apps").dim()
+        style("— Isolated local process sandbox, no external dependencies").dim()
     );
-    println!();
-
-    let configure_sandbox = Confirm::new()
-        .with_prompt("  Configure code sandbox now?")
-        .default(true)
-        .interact()?;
+    println!(
+        "  {} {}",
+        style("✓").green().bold(),
+        style("Local process sandbox enabled automatically — no configuration needed").green()
+    );
 
     let mut config = config;
-
-    if configure_sandbox {
-        let sandbox_options = vec![
-            "E2B   (cloud sandbox, recommended — fast, no Docker required)",
-            "Docker (local sandbox — requires Docker installed)",
-        ];
-
-        let choice = Select::new()
-            .with_prompt("  Select sandbox provider")
-            .items(&sandbox_options)
-            .default(0)
-            .interact()?;
-
-        match choice {
-            0 => {
-                // E2B
-                println!();
-                println!(
-                    "  {} {}",
-                    style("E2B Setup").white().bold(),
-                    style("— Get your API key at https://e2b.dev/dashboard").dim()
-                );
-                println!();
-
-                let api_key: String = Input::new()
-                    .with_prompt("  E2B API key (or Enter to skip)")
-                    .allow_empty(true)
-                    .interact_text()?;
-
-                if api_key.trim().is_empty() {
-                    println!(
-                        "  {} {}",
-                        style("→").dim(),
-                        style("Skipped — set zerobuild.e2b_api_key in config.toml later").dim()
-                    );
-                } else {
-                    config.e2b_api_key = api_key.trim().to_string();
-
-                    let template: String = Input::new()
-                        .with_prompt(format!(
-                            "  E2B template ID (Enter for default: {})",
-                            config.e2b_template
-                        ))
-                        .allow_empty(true)
-                        .interact_text()?;
-
-                    if !template.trim().is_empty() {
-                        config.e2b_template = template.trim().to_string();
-                    }
-
-                    println!(
-                        "  {} E2B sandbox: {} (template: {})",
-                        style("✓").green().bold(),
-                        style("enabled").green(),
-                        style(&config.e2b_template).cyan()
-                    );
-                }
-            }
-            1 => {
-                // Docker
-                println!();
-                println!(
-                    "  {} {}",
-                    style("Docker Setup").white().bold(),
-                    style("— Runs sandbox locally using Docker").dim()
-                );
-                println!();
-
-                let image: String = Input::new()
-                    .with_prompt(format!(
-                        "  Docker image (Enter for default: {})",
-                        config.docker_image
-                    ))
-                    .allow_empty(true)
-                    .interact_text()?;
-
-                if !image.trim().is_empty() {
-                    config.docker_image = image.trim().to_string();
-                }
-
-                println!(
-                    "  {} Docker sandbox: {} (image: {})",
-                    style("✓").green().bold(),
-                    style("enabled").green(),
-                    style(&config.docker_image).cyan()
-                );
-            }
-            _ => {}
-        }
-    } else {
-        println!(
-            "  {} {}",
-            style("→").dim(),
-            style("Skipped — configure sandbox in config.toml later").dim()
-        );
-    }
 
     println!();
     Ok(config)

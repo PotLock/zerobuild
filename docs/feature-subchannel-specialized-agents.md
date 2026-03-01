@@ -59,9 +59,9 @@ allowed_users = ["*"]
 # Telegram Forum Topic's message_thread_id
 subchannel_id = "123"
 name = "coder"
-system_prompt = "You are a coding agent. Build Next.js apps in E2B sandboxes."
+system_prompt = "You are a coding agent. Build Next.js apps in isolated sandboxes."
 model = "anthropic/claude-opus-4-20250514"
-allowed_tools = ["shell", "file_read", "file_write", "e2b_create", "e2b_run"]
+allowed_tools = ["shell", "file_read", "file_write", "sandbox_create", "sandbox_run_command"]
 
 [[channels_config.telegram.subchannel_agents]]
 subchannel_id = "456"
