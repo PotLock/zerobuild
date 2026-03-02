@@ -473,7 +473,10 @@ pub fn all_tools_with_runtime(
             let trimmed = k.trim();
             (!trimmed.is_empty()).then(|| trimmed.to_owned())
         });
-        tool_arcs.push(Arc::new(FactoryOrchestratorTool::new(
+
+        tracing::info!("Factory workflow enabled with dynamic spawning and progress streaming");
+
+        tool_arcs.push(Arc::new(crate::factory::FactoryOrchestratorTool::new(
             root_config.factory.max_ping_pong_iterations,
             root_config.factory.provider_overrides.clone(),
             crate::providers::ProviderRuntimeOptions {
@@ -496,6 +499,7 @@ pub fn all_tools_with_runtime(
                 .unwrap_or_else(|| "anthropic/claude-sonnet-4-6".to_string()),
             factory_parent_tools,
             root_config.multimodal.clone(),
+            root_config.factory.enable_streaming,
         )));
     }
 

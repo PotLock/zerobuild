@@ -265,8 +265,13 @@ fn default_max_tool_iterations() -> usize {
 /// specialized agents through phased execution.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FactoryConfig {
-    /// Enable the multi-agent factory workflow. Default: `false`.
-    #[serde(default)]
+    /// Enable the multi-agent factory workflow. Default: `true`.
+    ///
+    /// When enabled, the `factory_build` tool is registered and available
+    /// for the agent to invoke when it determines a task is complex enough
+    /// to benefit from multi-agent collaboration. The agent decides
+    /// autonomously — no manual toggling needed.
+    #[serde(default = "default_true")]
     pub enabled: bool,
     /// Maximum dev-tester ping-pong iterations before giving up. Default: `5`.
     #[serde(default = "default_max_ping_pong")]
@@ -275,20 +280,28 @@ pub struct FactoryConfig {
     /// (e.g. `"developer"`, `"tester"`, `"business_analyst"`).
     #[serde(default)]
     pub provider_overrides: HashMap<String, DelegateAgentConfig>,
+    /// Enable real-time progress streaming. Default: `true`.
+    #[serde(default = "default_true")]
+    pub enable_streaming: bool,
 }
 
 impl Default for FactoryConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             max_ping_pong_iterations: default_max_ping_pong(),
             provider_overrides: HashMap::new(),
+            enable_streaming: true,
         }
     }
 }
 
 fn default_max_ping_pong() -> usize {
     5
+}
+
+fn default_true() -> bool {
+    true
 }
 
 // ── Hardware Config (wizard-driven) ─────────────────────────────
@@ -843,10 +856,6 @@ fn default_gateway_rate_limit_max_keys() -> usize {
 
 fn default_gateway_idempotency_max_keys() -> usize {
     10_000
-}
-
-fn default_true() -> bool {
-    true
 }
 
 impl Default for GatewayConfig {

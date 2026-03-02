@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>A Virtual Software Company powered entirely by AI.</strong><br>
-  ⚡️ <strong>From idea to production — a hierarchical multi-agent team of AI specialists (PM, BA, UI/UX, Dev, Tester, DevOps) auto-builds your software. Zero coding. Zero management. Deploy-ready.</strong>
+  ⚡️ <strong>From idea to production — a hierarchical multi-agent team of AI specialists (Orchestrator, BA, UI/UX, Dev, Tester, DevOps) auto-builds your software. Zero coding. Zero management. Deploy-ready.</strong>
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@ Built on <a href="https://github.com/zeroclaw-labs/zeroclaw">ZeroClaw</a> — th
 
 ## ✨ What is ZeroBuild?
 
-ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **Hierarchical Multi-Agent System**, you provide a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Project Manager, Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate to automate the entire software development lifecycle and deliver a production-ready product.
+ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **Hierarchical Multi-Agent System**, you provide a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Orchestrator (CEO), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate to automate the entire software development lifecycle and deliver a production-ready product.
 
 **Think of it as hiring an entire software team, but it's all AI — and it costs pennies.**
 
@@ -53,7 +53,7 @@ ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **
 **Core values:**
 
 - 🚀 **Idea to Code in minutes** — Shrink development time from months to hours
-- 🤖 **Zero Management** — No coding skills, no team management; the Orchestrator (CEO/Master Agent) handles all task delegation and supervision
+- 🤖 **Zero Management** — No coding skills, no team management; the Orchestrator (CEO) handles all task delegation and supervision
 - 💰 **Ultra-low cost** — Replace expensive engineering teams with API token costs
 - 🏭 **Full SDLC automation** — Requirements → Design → Code → Test → Deploy, all automated
 
@@ -101,7 +101,7 @@ User provides idea (natural language)
     │
     ▼
 ┌───────────────────────────────────────────────────────┐
-│  🏢 Orchestrator Agent (CEO / Master Agent)           │
+│  🏢 Orchestrator Agent (CEO)                          │
 │  • Receives idea, analyzes feasibility                │
 │  • Creates project plan                               │
 │  • Spawns specialized sub-agents                      │
@@ -142,7 +142,22 @@ Local Process Sandbox             ← Isolated Build Environment
 
 **Dual-mode architecture:** ZeroBuild operates in two modes:
 - **Single-agent mode** (default) — One unified agent handles conversation, planning, coding, and deployment
-- **Factory mode** (opt-in) — The Orchestrator (CEO/Master Agent) spawns specialized sub-agents with dedicated contexts and permissions, coordinating the full SDLC: analysis → parallel build → dev-test iteration loops → deployment
+- **Factory mode** (enabled by default, `factory.enabled = true`) — The Orchestrator (CEO) automatically spawns specialized sub-agents for complex tasks. For simple requests, the agent handles directly without invoking factory.
+
+### 📋 Blackboard — Shared Agent State
+
+The **Blackboard** is the shared state layer enabling cross-agent collaboration. Built on `InMemoryMessageBus` and `SharedContextEntry`, it allows agents to publish and read artifacts:
+
+| Artifact | Producer | Consumers |
+|----------|----------|-----------|
+| `artifact:prd` | Business Analyst | All agents |
+| `artifact:design_spec` | UI/UX Designer | Developer, Tester |
+| `artifact:source_code` | Developer | Tester, DevOps |
+| `artifact:test_cases` | Tester | Developer (integration loop) |
+| `artifact:test_results` | Tester | Orchestrator (phase control) |
+| `artifact:deploy_config` | DevOps | Orchestrator (final result) |
+
+Agents use versioned writes (`ContextPatch`) with optimistic-locking to prevent conflicts. All factory agents share the same sandbox filesystem, enabling collaborative file access.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full multi-agent design.
 
@@ -157,7 +172,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full multi-agent design.
 5. **Build** — Agents collaborate autonomously:
    - BA writes requirements (PRD) → shared with all agents
    - UI/UX, Dev, and Tester work in parallel
-   - Dev-Tester auto-fix loop runs until all tests pass
+   - Dev-Tester auto-fix loop runs until all tests pass (max 5 iterations by default)
 6. **Deploy** — DevOps agent deploys the finished product (live URL + GitHub repo)
 7. **Iterate** — Request changes; the team re-engages and rebuilds
 
@@ -191,7 +206,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full multi-agent design.
 | **Open Source** | ✅ Yes | ❌ No | ❌ No | ❌ No | ✅ Yes |
 | **Self-Hostable** | ✅ Yes | ❌ No | ❌ No | ❌ No | ✅ Yes |
 | **Runtime** | Rust (<10MB) | Cloud | Cloud | Cloud | Node.js |
-| **Multi-Agent Team** | ✅ Full SDLC (BA, Dev, Tester, DevOps) | ❌ Single agent | ❌ Single agent | ❌ Single agent | ❌ Single agent |
+| **Multi-Agent Team** | ✅ Full SDLC (Orchestrator, BA, UI/UX, Dev, Tester, DevOps) | ❌ Single agent | ❌ Single agent | ❌ Single agent | ❌ Single agent |
 | **GitHub Connector** | ✅ Full (repos, issues, PRs, comments, inline review, push) | ❌ No | ❌ No | ❌ No | Manual |
 
 ---

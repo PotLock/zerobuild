@@ -2,7 +2,7 @@
 
 ## Vision
 
-ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **Hierarchical Multi-Agent System**, a user provides a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Project Manager (Orchestrator), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate autonomously to automate the entire software development lifecycle and deliver a production-ready product.
+ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **Hierarchical Multi-Agent System**, a user provides a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Orchestrator (CEO), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate autonomously to automate the entire software development lifecycle and deliver a production-ready product.
 
 **Core promise:** From idea to working software in minutes, not months. Zero coding. Zero management. Ultra-low cost.
 
@@ -17,7 +17,7 @@ User provides idea (any channel: Telegram / Discord / Slack / CLI)
     │
     ▼
 ┌───────────────────────────────────────┐
-│  🏢 Orchestrator (CEO / Master Agent) │
+│  🏢 Orchestrator (CEO) │
 │  • Receives idea, analyzes feasibility│
 │  • Creates project plan               │
 │  • Spawns specialized sub-agents      │
@@ -153,7 +153,7 @@ src/factory/
 
 ```toml
 [factory]
-enabled = false                    # Opt-in, zero impact when disabled
+enabled = true                     # Default: true. Agent autonomously decides when to use factory
 max_ping_pong_iterations = 5       # Dev-Tester loop cap
 
 [factory.provider_overrides.business_analyst]
@@ -166,7 +166,7 @@ model = "anthropic/claude-sonnet-4-6"
 
 ## Design Decisions
 
-1. **Opt-in by default** — `factory.enabled = false`. Existing single-agent mode is unaffected.
+1. **Enabled by default** — `factory.enabled = true`. The `factory_build` tool is always available; the agent autonomously decides when to use it based on task complexity.
 2. **Same sandbox** — All factory agents share the same sandbox filesystem, enabling collaborative file access.
 3. **Hard iteration cap** — Prevents infinite dev-test loops. Configurable, default 5.
 4. **No new traits** — Factory uses existing `Tool`, `Provider`, and coordination traits.

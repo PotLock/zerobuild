@@ -11,10 +11,10 @@ Scope: entire repository (Rust runtime only — Node.js backend removed).
 
 **ZeroBuild** is a hierarchical multi-agent system (Autonomous Software Factory) built on ZeroClaw:
 
-- **Orchestrator (CEO/Master Agent)** — Receives user ideas, analyzes feasibility, creates project plans, spawns specialized sub-agents, and coordinates the entire SDLC.
+- **Orchestrator (CEO)** — Receives user ideas, analyzes feasibility, creates project plans, spawns specialized sub-agents, and coordinates the entire SDLC.
 - **Specialized Sub-Agents** — BA (requirements), UI/UX (design), Developer (implementation), Tester (validation), DevOps (deployment) — each with dedicated contexts, permissions, and tools.
 - **Single-agent mode** (default) — One agent handles conversation, planning, coding, and deployment for simpler tasks.
-- **Factory mode** (opt-in) — The Orchestrator spawns the full AI team for complex, multi-phase projects.
+- **Factory mode** (enabled by default) — The Orchestrator spawns the full AI team for complex, multi-phase projects. The agent autonomously decides when to use `factory_build` based on task complexity.
 
 ZeroClaw (the upstream base) is a Rust-first autonomous agent runtime optimized for performance, efficiency, stability, extensibility, sustainability, and security. ZeroBuild adds the multi-agent factory and project-building product layer on top.
 
@@ -57,7 +57,7 @@ User provides idea (any channel: Telegram, Discord, Slack, CLI)
     │
     ▼
 ┌───────────────────────────────────────────────┐
-│  Orchestrator (CEO / Master Agent)            │
+│  Orchestrator (CEO)                           │
 │  • Receives idea, analyzes feasibility        │
 │  • Creates project plan, spawns sub-agents    │
 │  • Coordinates phased execution               │
@@ -87,7 +87,7 @@ Local Process Sandbox      ← Isolated build sandbox
 
 ### Why this architecture
 
-1. **Virtual Software Company**: Mirrors a real dev team — PM delegates to specialists, each owns their domain.
+1. **Virtual Software Company**: Mirrors a real dev team — Orchestrator delegates to specialists, each owns their domain.
 2. **Autonomous SDLC**: The full lifecycle (requirements → design → code → test → deploy) runs without human intervention at technical steps.
 3. **Self-healing loops**: Dev-Tester ping-pong with hard iteration cap prevents infinite loops while ensuring quality.
 4. **Security boundary preserved**: OAuth tokens stored in SQLite only, never in logs or agent messages. Sandbox uses `env_clear()`.
@@ -487,7 +487,7 @@ Use this workflow when the user asks to fix a bug in an existing GitHub reposito
 
 ## 6) Multi-Agent Factory Workflow
 
-ZeroBuild supports an opt-in **factory mode** where the Orchestrator spawns specialized AI agents that collaborate through phased execution. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
+ZeroBuild supports a **factory mode** where the Orchestrator spawns specialized AI agents that collaborate through phased execution. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 
 ### 6.1 Agent Roles and Responsibilities
 
@@ -524,7 +524,7 @@ Agents communicate through a shared `Blackboard` (typed `Arc<Mutex<HashMap>>`) w
 
 ```toml
 [factory]
-enabled = false                    # Opt-in, default disabled
+enabled = true                     # Default: true. Agent autonomously decides when to use factory
 max_ping_pong_iterations = 5       # Dev-Tester loop cap
 
 # Per-role provider/model overrides (optional)

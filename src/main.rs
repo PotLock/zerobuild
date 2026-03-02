@@ -56,6 +56,7 @@ mod rag {
     pub use zerobuild::rag::*;
 }
 mod config;
+mod coordination;
 mod cost;
 mod cron;
 mod daemon;

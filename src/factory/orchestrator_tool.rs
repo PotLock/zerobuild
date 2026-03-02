@@ -14,8 +14,14 @@ use std::sync::Arc;
 
 /// Tool that orchestrates the full multi-agent factory workflow.
 ///
-/// When invoked, spawns specialized agents (BA, UI/UX, Developer, Tester, DevOps)
+/// When invoked, spawns specialized agents (Business Analyst, UI/UX Designer, Developer, Tester, DevOps)
 /// through phased execution to turn a user's idea into working software.
+///
+/// Features:
+/// - Intent classification for dynamic agent spawning
+/// - Progress streaming for real-time visibility
+/// - Cross-phase memory sharing
+/// - Optional learning and sub-agent spawning
 pub struct FactoryOrchestratorTool {
     max_ping_pong: usize,
     role_overrides: HashMap<String, DelegateAgentConfig>,
@@ -25,6 +31,7 @@ pub struct FactoryOrchestratorTool {
     default_model: String,
     parent_tools: Arc<Vec<Arc<dyn Tool>>>,
     multimodal_config: crate::config::MultimodalConfig,
+    enable_streaming: bool,
 }
 
 impl FactoryOrchestratorTool {
@@ -39,6 +46,7 @@ impl FactoryOrchestratorTool {
         default_model: String,
         parent_tools: Arc<Vec<Arc<dyn Tool>>>,
         multimodal_config: crate::config::MultimodalConfig,
+        enable_streaming: bool,
     ) -> Self {
         Self {
             max_ping_pong,
@@ -49,6 +57,7 @@ impl FactoryOrchestratorTool {
             default_model,
             parent_tools,
             multimodal_config,
+            enable_streaming,
         }
     }
 }
@@ -122,6 +131,7 @@ impl Tool for FactoryOrchestratorTool {
             self.default_model.clone(),
             self.parent_tools.clone(),
             self.multimodal_config.clone(),
+            self.enable_streaming,
         );
 
         match workflow.run().await {
@@ -160,6 +170,7 @@ mod tests {
             "test-model".into(),
             Arc::new(Vec::new()),
             crate::config::MultimodalConfig::default(),
+            true,
         );
 
         assert_eq!(tool.name(), "factory_build");
@@ -181,6 +192,7 @@ mod tests {
             "test-model".into(),
             Arc::new(Vec::new()),
             crate::config::MultimodalConfig::default(),
+            true,
         );
 
         assert!(!tool.description().is_empty());
@@ -197,6 +209,7 @@ mod tests {
             "test-model".into(),
             Arc::new(Vec::new()),
             crate::config::MultimodalConfig::default(),
+            true,
         );
 
         let result = tool.execute(json!({"idea": "  "})).await.unwrap();
@@ -215,6 +228,7 @@ mod tests {
             "test-model".into(),
             Arc::new(Vec::new()),
             crate::config::MultimodalConfig::default(),
+            true,
         );
 
         let result = tool.execute(json!({})).await;

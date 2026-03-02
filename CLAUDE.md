@@ -8,7 +8,7 @@ Scope: entire repository.
 **This repository is ZeroBuild — the Autonomous Software Factory.** A Virtual Software Company powered entirely by AI, forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
 
 **ZeroBuild** is a hierarchical multi-agent system that automates the entire software development lifecycle:
-- **Orchestrator (CEO/Master Agent)** — Receives user ideas, analyzes feasibility, spawns specialized sub-agents, coordinates phased execution, and reports progress.
+- **Orchestrator (CEO)** — Receives user ideas, analyzes feasibility, spawns specialized sub-agents, coordinates phased execution, and reports progress.
 - **Specialized Sub-Agents** (BA, UI/UX, Developer, Tester, DevOps) — Each operates with dedicated context and permissions, collaborating through a shared blackboard to deliver production-ready software.
 - **Single-agent mode** (default) — One unified agent handles the full workflow for simpler tasks.
 - **Factory mode** (opt-in) — The Orchestrator spawns the full AI team for complex projects.
