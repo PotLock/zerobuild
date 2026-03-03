@@ -283,6 +283,9 @@ pub struct FactoryConfig {
     /// Enable real-time progress streaming. Default: `true`.
     #[serde(default = "default_true")]
     pub enable_streaming: bool,
+    /// Workspace isolation configuration for per-agent workspace management.
+    #[serde(default)]
+    pub workspace: WorkspaceIsolationConfig,
 }
 
 impl Default for FactoryConfig {
@@ -292,12 +295,125 @@ impl Default for FactoryConfig {
             max_ping_pong_iterations: default_max_ping_pong(),
             provider_overrides: HashMap::new(),
             enable_streaming: true,
+            workspace: WorkspaceIsolationConfig::default(),
+        }
+    }
+}
+
+/// Workspace isolation configuration for multi-agent factory.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct WorkspaceIsolationConfig {
+    /// Enable per-agent workspace isolation. Default: `true`.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Root directory for agent workspaces. Default: `~/.zerobuild/workspaces`.
+    #[serde(default = "default_workspace_root")]
+    pub workspace_root: String,
+    /// Preserve workspaces after agent termination. Default: `true`.
+    #[serde(default = "default_true")]
+    pub preserve_workspaces: bool,
+    /// Archive workspaces older than this duration (in days). Default: `7`.
+    #[serde(default = "default_workspace_archive_after_days")]
+    pub archive_after_days: u32,
+    /// Maximum disk space per workspace in MB. Default: `1024`.
+    #[serde(default = "default_workspace_max_size_mb")]
+    pub max_workspace_size_mb: u32,
+    /// Agent pool configuration.
+    #[serde(default)]
+    pub pool: AgentPoolConfig,
+}
+
+impl Default for WorkspaceIsolationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            workspace_root: default_workspace_root(),
+            preserve_workspaces: true,
+            archive_after_days: default_workspace_archive_after_days(),
+            max_workspace_size_mb: default_workspace_max_size_mb(),
+            pool: AgentPoolConfig::default(),
+        }
+    }
+}
+
+fn default_workspace_root() -> String {
+    "~/.zerobuild/workspaces".to_string()
+}
+
+fn default_workspace_archive_after_days() -> u32 {
+    7
+}
+
+fn default_workspace_max_size_mb() -> u32 {
+    1024
+}
+
+/// Agent pool configuration for workspace isolation.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AgentPoolConfig {
+    /// Maximum number of agents per role. Default: `5`.
+    #[serde(default = "default_max_agents_per_role")]
+    pub max_agents_per_role: usize,
+    /// Minimum number of warm agents to maintain. Default: `1`.
+    #[serde(default = "default_min_warm_agents")]
+    pub min_warm_agents: usize,
+    /// Idle timeout in seconds before moving to cold state. Default: `300`.
+    #[serde(default = "default_idle_timeout_seconds")]
+    pub idle_timeout_seconds: u64,
+    /// Maximum agent lifetime in seconds before recycling. Default: `3600`.
+    #[serde(default = "default_max_agent_lifetime_seconds")]
+    pub max_agent_lifetime_seconds: u64,
+    /// Enable auto-scaling based on queue depth. Default: `true`.
+    #[serde(default = "default_true")]
+    pub auto_scaling_enabled: bool,
+    /// Scale up when queue depth exceeds this. Default: `10`.
+    #[serde(default = "default_scale_up_threshold")]
+    pub scale_up_threshold: usize,
+    /// Scale down when queue depth below this. Default: `2`.
+    #[serde(default = "default_scale_down_threshold")]
+    pub scale_down_threshold: usize,
+}
+
+impl Default for AgentPoolConfig {
+    fn default() -> Self {
+        Self {
+            max_agents_per_role: default_max_agents_per_role(),
+            min_warm_agents: default_min_warm_agents(),
+            idle_timeout_seconds: default_idle_timeout_seconds(),
+            max_agent_lifetime_seconds: default_max_agent_lifetime_seconds(),
+            auto_scaling_enabled: true,
+            scale_up_threshold: default_scale_up_threshold(),
+            scale_down_threshold: default_scale_down_threshold(),
         }
     }
 }
 
 fn default_max_ping_pong() -> usize {
     5
+}
+
+fn default_max_agents_per_role() -> usize {
+    5
+}
+
+fn default_min_warm_agents() -> usize {
+    1
+}
+
+fn default_idle_timeout_seconds() -> u64 {
+    300
+}
+
+fn default_max_agent_lifetime_seconds() -> u64 {
+    3600
+}
+
+fn default_scale_up_threshold() -> usize {
+    10
+}
+
+fn default_scale_down_threshold() -> usize {
+    2
 }
 
 fn default_true() -> bool {

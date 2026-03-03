@@ -307,16 +307,16 @@ Agents publish artifacts via `publish_artifact()` and read them via `read_artifa
 
 ---
 
-## Agent Workspace Isolation (Future)
+## Agent Workspace Isolation ✓ (Implemented)
 
-### Current Limitation
-Currently all agents share the same sandbox (`/tmp/zerobuild-sandbox-{uuid}/`), which can lead to:
+### Problem Solved
+Previously all agents shared the same sandbox (`/tmp/zerobuild-sandbox-{uuid}/`), which led to:
 - Accidental file overwrites between agents
 - Difficulty debugging which agent created which file
 - No per-agent rollback capability
 - Shared identity and skills across all agents
 
-### Proposed Workspace Architecture
+### Implemented Workspace Architecture
 
 ```
 ~/.zerobuild/
@@ -352,6 +352,60 @@ Currently all agents share the same sandbox (`/tmp/zerobuild-sandbox-{uuid}/`), 
 - ✅ Per-agent identity, skills, and memory
 - ✅ Independent rollback per agent
 - ✅ Better debugging and audit trails
+
+### Usage
+
+Workspace isolation is enabled by default in FactoryWorkflow. To customize:
+
+```rust
+use zerobuild::factory::{FactoryWorkflow, WorkspaceManager, WorkspaceConfig};
+use std::sync::Arc;
+
+// Create workspace manager with custom config
+let workspace_config = WorkspaceConfig {
+    workspace_root: "/custom/path".into(),
+    preserve_workspaces: true,
+    archive_after: Some(Duration::from_secs(7 * 24 * 60 * 60)),
+    max_workspace_size: Some(1024 * 1024 * 1024), // 1GB
+    default_identity_template: include_str!("./my_identity.md").to_string(),
+};
+
+let workspace_manager = Arc::new(
+    WorkspaceManager::new(workspace_config).unwrap()
+);
+
+// Create workflow with workspace isolation
+let workflow = FactoryWorkflow::new(
+    idea,
+    max_ping_pong,
+    role_overrides,
+    provider_runtime_options,
+    fallback_credential,
+    default_provider,
+    default_model,
+    parent_tools,
+    multimodal_config,
+    enable_streaming,
+)
+.with_workspace_isolation(workspace_manager);
+
+// Run workflow - workspaces will be auto-created
+let result = workflow.run().await;
+```
+
+Or use via configuration:
+
+```toml
+[factory]
+enabled = true
+
+[factory.workspace]
+enabled = true
+workspace_root = "~/.zerobuild/workspaces"
+preserve_workspaces = true
+archive_after_days = 7
+max_workspace_size_mb = 1024
+```
 
 ---
 
@@ -598,7 +652,7 @@ The factory module builds on existing infrastructure rather than rewriting:
 | `SharedContextEntry` + `ContextPatch` | Artifact storage with versioned writes |
 | `run_tool_call_loop` | Agent execution engine for each role |
 
-### Module Structure (Current)
+### Module Structure (Current - With Workspace Isolation)
 
 ```
 src/factory/
@@ -606,34 +660,15 @@ src/factory/
 ├── roles.rs                # AgentRole enum, RoleConfig, system prompts
 ├── blackboard.rs           # Blackboard struct wrapping InMemoryMessageBus
 ├── workflow.rs             # WorkflowPhase state machine, FactoryWorkflow
-└── orchestrator_tool.rs    # FactoryOrchestratorTool (Tool trait impl)
-```
-
-### Module Structure (Future - Workspace Isolation)
-
-```
-src/factory/
-├── mod.rs
-├── roles.rs
-├── blackboard.rs
-├── workflow.rs
-├── orchestrator_tool.rs
-├── workspace/              # NEW: Per-agent workspace management
-│   ├── mod.rs
-│   ├── manager.rs          # Workspace lifecycle
-│   └── isolation.rs        # Sandboxing per agent
-├── protocol/               # NEW: Inter-agent communication
-│   ├── mod.rs
-│   ├── message.rs          # Generic message types
-│   ├── registry.rs         # Dynamic type registry
-│   ├── bus.rs              # Message routing
-│   ├── heartbeat.rs        # Health monitoring
-│   └── queue.rs            # Busy state handling
-└── pool/                   # NEW: Agent pool management
-    ├── mod.rs
-    ├── pool.rs             # AgentPool implementation
-    ├── lifecycle.rs        # Warm/cold state transitions
-    └── health.rs           # Health checking
+├── orchestrator_tool.rs    # FactoryOrchestratorTool (Tool trait impl)
+├── workspace/              # Per-agent workspace management
+│   ├── mod.rs              # Core types (WorkspaceId, AgentConfig, etc.)
+│   ├── manager.rs          # WorkspaceManager lifecycle
+│   └── isolation.rs        # Sandboxing, path validation, migration
+├── protocol/               # Inter-agent communication
+│   └── mod.rs              # Message types, bus, handlers, registry
+└── pool/                   # Agent pool management
+    └── mod.rs              # AgentPool, warm/cold states, auto-scaling
 ```
 
 ### Configuration
@@ -642,6 +677,24 @@ src/factory/
 [factory]
 enabled = true                     # Default: true. Agent autonomously decides when to use factory
 max_ping_pong_iterations = 5       # Dev-Tester loop cap
+
+# Workspace Isolation Configuration
+[factory.workspace]
+enabled = true                     # Enable per-agent workspace isolation
+workspace_root = "~/.zerobuild/workspaces"
+preserve_workspaces = true         # Keep workspaces after agent termination
+archive_after_days = 7             # Archive workspaces older than 7 days
+max_workspace_size_mb = 1024       # Max 1GB per workspace
+
+# Agent Pool Configuration
+[factory.workspace.pool]
+max_agents_per_role = 5            # Max concurrent agents per role
+min_warm_agents = 1                # Minimum warm agents to maintain
+idle_timeout_seconds = 300         # 5 minutes idle timeout
+max_agent_lifetime_seconds = 3600  # 1 hour max agent lifetime
+auto_scaling_enabled = true        # Enable auto-scaling hooks
+scale_up_threshold = 10            # Scale up when queue > 10
+scale_down_threshold = 2           # Scale down when queue < 2
 
 [factory.provider_overrides.business_analyst]
 provider = "openrouter"
@@ -654,10 +707,12 @@ model = "anthropic/claude-sonnet-4-6"
 ## Design Decisions
 
 1. **Enabled by default** — `factory.enabled = true`. The `factory_build` tool is always available; the agent autonomously decides when to use it based on task complexity.
-2. **Same sandbox** — All factory agents share the same sandbox filesystem, enabling collaborative file access.
-3. **Hard iteration cap** — Prevents infinite dev-test loops. Configurable, default 5.
-4. **No new traits** — Factory uses existing `Tool`, `Provider`, and coordination traits.
-5. **Backward compatible** — No breaking changes to any existing interface.
+2. **Workspace isolation** — Each agent gets its own isolated workspace with dedicated filesystem, identity, and memory. Configurable via `factory.workspace.enabled`.
+3. **Agent pool** — Warm agents are kept ready for immediate reuse. Cold agents are archived to save resources. Configurable via `factory.workspace.pool`.
+4. **Hard iteration cap** — Prevents infinite dev-test loops. Configurable, default 5.
+5. **No new traits** — Factory uses existing `Tool`, `Provider`, and coordination traits.
+6. **Backward compatible** — No breaking changes to any existing interface.
+7. **Compile-time inclusion** — Workspace isolation modules are always compiled, no feature flag required.
 
 ---
 
@@ -671,20 +726,21 @@ model = "anthropic/claude-sonnet-4-6"
 - [x] `factory_build` tool registration
 - [x] Phase 0: Planning with user confirmation
 
-### Phase B: Workspace Isolation (Next)
-- [ ] Per-agent workspace structure (`~/.zerobuild/workspaces/`)
-- [ ] Move sandbox from `/tmp` to agent workspace
-- [ ] Per-agent `identity.md` and `skills/` folder
-- [ ] Workspace lifecycle management
-- [ ] Migration tool from old structure
+### Phase B: Workspace Isolation ✓ (Implemented)
+- [x] Per-agent workspace structure (`~/.zerobuild/workspaces/`)
+- [x] Move sandbox from `/tmp` to agent workspace
+- [x] Per-agent `identity.md` and `skills/` folder
+- [x] Workspace lifecycle management (create, archive, delete)
+- [x] Migration tool from old structure
+- [x] Configuration options in `[factory.workspace]`
 
-### Phase C: Communication Protocol (Next)
-- [ ] Generic `AgentMessage` envelope
-- [ ] Dynamic message type registry
-- [ ] Message bus with routing
-- [ ] Request/response pattern
-- [ ] Event broadcasting
-- [ ] YAML-based message type definitions
+### Phase C: Communication Protocol ✓ (Implemented)
+- [x] Generic `AgentMessage` envelope
+- [x] Dynamic message type registry
+- [x] Message bus with routing
+- [x] Request/response pattern
+- [x] Event broadcasting
+- [x] Interceptor support (logging, TTL)
 
 ### Phase D: Monitoring & Reliability (Next)
 - [ ] Heartbeat protocol (5-second intervals)
@@ -699,11 +755,12 @@ model = "anthropic/claude-sonnet-4-6"
 - [ ] Smart routing (alternative agents)
 - [ ] Message persistence and retry
 
-### Phase F: Pool Management (Next)
-- [ ] Warm/cold agent pool
-- [ ] Auto-scaling based on demand
-- [ ] Pool lifecycle management
-- [ ] Resource optimization
+### Phase F: Pool Management ✓ (Implemented)
+- [x] Warm/cold agent pool
+- [x] Auto-scaling based on demand (hooks)
+- [x] Pool lifecycle management
+- [x] Resource optimization
+- [x] Configuration options in `[factory.workspace.pool]`
 
 ### Phase G: Advanced Features (Future)
 - [ ] Cross-project learning from previous builds

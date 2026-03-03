@@ -11,10 +11,12 @@
 //! - Optional sub-agent spawning for complex tasks
 
 use super::blackboard::{Artifact, Blackboard};
+use super::pool::{AgentPool, PoolConfig};
 use super::progress::{
     AgentStatus, ProgressBroadcaster, ProgressTracker, TestStatus, WorkflowCompletionStatus,
 };
 use super::roles::{AgentRole, RoleConfig};
+use super::workspace::{AgentConfig as WorkspaceAgentConfig, WorkspaceConfig, WorkspaceManager};
 use crate::config::DelegateAgentConfig;
 use crate::providers::{self, Provider};
 use crate::tools::traits::Tool;
@@ -69,6 +71,10 @@ pub struct FactoryWorkflow {
     progress: ProgressTracker,
     enable_streaming: bool,
     enable_dynamic_spawning: bool,
+    // Workspace isolation (Phase B)
+    workspace_manager: Option<Arc<WorkspaceManager>>,
+    agent_pool: Option<AgentPool>,
+    use_workspace_isolation: bool,
 }
 
 impl FactoryWorkflow {
@@ -107,7 +113,21 @@ impl FactoryWorkflow {
             progress,
             enable_streaming,
             enable_dynamic_spawning: true,
+            workspace_manager: None,
+            agent_pool: None,
+            use_workspace_isolation: false,
         }
+    }
+
+    /// Enable workspace isolation for this workflow
+    pub fn with_workspace_isolation(mut self, manager: Arc<WorkspaceManager>) -> Self {
+        let pool_config = PoolConfig::default();
+        let pool = AgentPool::with_config(Arc::clone(&manager), pool_config);
+
+        self.workspace_manager = Some(manager);
+        self.agent_pool = Some(pool);
+        self.use_workspace_isolation = true;
+        self
     }
 
     /// Disable progress streaming
@@ -134,6 +154,9 @@ impl FactoryWorkflow {
             self.progress.workflow_started();
         }
 
+        // Initialize workspace isolation if enabled
+        self.initialize_workspaces().await?;
+
         // Phase 0: Intent Classification
         self.classify_intent().await?;
 
@@ -152,7 +175,63 @@ impl FactoryWorkflow {
             self.progress.workflow_completed(status);
         }
 
+        // Cleanup workspace isolation if enabled
+        self.cleanup_workspaces().await;
+
         result
+    }
+
+    /// Initialize workspaces for all agents if workspace isolation is enabled
+    async fn initialize_workspaces(&mut self) -> Result<()> {
+        if !self.use_workspace_isolation {
+            return Ok(());
+        }
+
+        if self.enable_streaming {
+            self.progress
+                .progress_update("Initializing agent workspaces...", 2);
+        }
+
+        // Determine which agents will be needed
+        let mut roles = vec![
+            AgentRole::BusinessAnalyst,
+            AgentRole::Developer,
+            AgentRole::Tester,
+        ];
+        if self.spawn_ui_ux {
+            roles.push(AgentRole::UiUxDesigner);
+        }
+        if self.spawn_devops {
+            roles.push(AgentRole::DevOps);
+        }
+
+        // Pre-warm agents in the pool
+        if let Some(ref pool) = self.agent_pool {
+            for role in roles {
+                let agent_config = WorkspaceAgentConfig::for_role(role);
+                // This will create a warm agent if pool is below minimum
+                let _ = pool.acquire_agent(role, agent_config).await;
+            }
+        }
+
+        if self.enable_streaming {
+            self.progress.progress_update("Workspaces initialized", 3);
+        }
+
+        Ok(())
+    }
+
+    /// Cleanup workspaces when workflow completes
+    async fn cleanup_workspaces(&mut self) {
+        if !self.use_workspace_isolation {
+            return;
+        }
+
+        if let Some(ref pool) = self.agent_pool {
+            if let Err(e) = pool.shutdown_all().await {
+                tracing::error!("Failed to shutdown agent pool: {}", e);
+            }
+        }
     }
 
     /// Phase 0: Intent Analysis using LLM
