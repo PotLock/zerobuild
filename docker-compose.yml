@@ -9,9 +9,13 @@
 
 services:
   zerobuild:
-    image: ghcr.io/zerobuild-labs/zerobuild:latest
+    image: ghcr.io/potlock/zerobuild:latest
     # Or build locally:
     # build: .
+    # Or use dev target:
+    # build:
+    #   context: .
+    #   target: dev
     container_name: zerobuild
     restart: unless-stopped
     

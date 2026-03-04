@@ -186,7 +186,7 @@ install_prebuilt_binary() {
     return 1
   fi
 
-  archive_url="https://github.com/zeroclaw-labs/zeroclaw/releases/latest/download/zerobuild-${target}.tar.gz"
+  archive_url="https://github.com/PotLock/zerobuild/releases/latest/download/zerobuild-${target}.tar.gz"
   temp_dir="$(mktemp -d -t zerobuild-prebuilt-XXXXXX)"
   archive_path="$temp_dir/zerobuild-${target}.tar.gz"
 
@@ -721,7 +721,7 @@ MSG
 SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 && pwd || pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd || pwd)"
-REPO_URL="https://github.com/zeroclaw-labs/zeroclaw.git"
+REPO_URL="https://github.com/PotLock/zerobuild.git"
 ORIGINAL_ARG_COUNT=$#
 GUIDED_MODE="auto"
 
