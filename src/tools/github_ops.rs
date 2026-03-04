@@ -105,6 +105,39 @@ fn validate_labels(labels: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// Sanitizes labels to only include valid type labels and known scope labels.
+/// Removes labels with spaces (like "help wanted") that cause 422 errors.
+fn sanitize_labels(labels: &[String]) -> Vec<String> {
+    // Known valid scope labels that don't contain spaces
+    const VALID_SCOPE_LABELS: &[&str] = &[
+        "provider", "channel", "tool", "gateway", "memory", "runtime", 
+        "config", "ci", "performance", "ui", "api", "database", "deps",
+    ];
+    
+    labels
+        .iter()
+        .filter(|label| {
+            let label_lower = label.to_lowercase();
+            // Keep type labels
+            if VALID_TYPE_LABELS.contains(&label_lower.as_str()) {
+                return true;
+            }
+            // Keep known scope labels
+            if VALID_SCOPE_LABELS.contains(&label_lower.as_str()) {
+                return true;
+            }
+            // Skip labels with spaces (cause 422 errors if not pre-created in repo)
+            if label.contains(' ') {
+                tracing::warn!(label = %label, "Skipping label with space - may not exist in repository");
+                return false;
+            }
+            // Keep other labels that don't have spaces (might work if they exist)
+            true
+        })
+        .cloned()
+        .collect()
+}
+
 /// Validates that PR title follows conventional commit format
 fn validate_pr_title(title: &str) -> Result<(), String> {
     if title.trim().is_empty() {
@@ -592,6 +625,9 @@ impl Tool for GitHubCreateIssueTool {
             });
         }
 
+        // Sanitize labels to remove problematic ones (e.g., "help wanted" with spaces)
+        let labels = sanitize_labels(&labels);
+
         // Resolve owner: explicit args > parsed from repo > stored username
         let owner = if let Some(o) = args["owner"].as_str().filter(|s| !s.is_empty()) {
             o.to_string()
@@ -813,6 +849,9 @@ impl Tool for GitHubCreatePRTool {
                 )),
             });
         }
+
+        // Sanitize labels to remove problematic ones (e.g., "help wanted" with spaces)
+        let labels = sanitize_labels(&labels);
 
         // Resolve owner: explicit args > parsed from repo > stored username
         let owner = if let Some(o) = args["owner"].as_str().filter(|s| !s.is_empty()) {
@@ -1693,6 +1732,9 @@ impl Tool for GitHubCreateIssueWithHashtagsTool {
                 error_hint: Some("Example: '#bug [Bug]: Login returns 500 error' or '#feature [Feature]: Add dark mode'".to_string()),
             });
         }
+
+        // Sanitize labels to remove problematic ones (e.g., with spaces)
+        let labels = sanitize_labels(&labels);
 
         let title = if let Some(t) = args["title"].as_str().filter(|s| !s.is_empty()) {
             t.to_string()
