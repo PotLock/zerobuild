@@ -17,7 +17,7 @@
 //! protection: prevents accidental writes outside sandbox dir and credential
 //! leaks via HOME.
 
-use super::{CommandOutput, SandboxClient};
+use super::{CommandOutput, PackageManager, SandboxClient};
 use anyhow::Context as _;
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -52,6 +52,8 @@ pub struct LocalProcessSandboxClient {
     sandbox_id: Arc<Mutex<Option<String>>>,
     /// Active cloudflared tunnel process, if any.
     tunnel_process: Arc<Mutex<Option<TunnelHandle>>>,
+    /// Detected package manager for this sandbox.
+    package_manager: Arc<Mutex<PackageManager>>,
 }
 
 impl LocalProcessSandboxClient {
@@ -60,6 +62,7 @@ impl LocalProcessSandboxClient {
         Self {
             sandbox_id: Arc::new(Mutex::new(None)),
             tunnel_process: Arc::new(Mutex::new(None)),
+            package_manager: Arc::new(Mutex::new(PackageManager::Npm)),
         }
     }
 
@@ -373,6 +376,14 @@ impl SandboxClient for LocalProcessSandboxClient {
 
     fn clear_id(&self) {
         *self.sandbox_id.lock() = None;
+    }
+
+    fn package_manager(&self) -> PackageManager {
+        *self.package_manager.lock()
+    }
+
+    fn set_package_manager(&self, pm: PackageManager) {
+        *self.package_manager.lock() = pm;
     }
 }
 

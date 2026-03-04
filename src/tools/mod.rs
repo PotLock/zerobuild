@@ -108,9 +108,9 @@ pub use product_advisor::ProductAdvisorTool;
 pub use proxy_config::ProxyConfigTool;
 pub use pushover::PushoverTool;
 pub use sandbox::{
-    SandboxCreateTool, SandboxGetPreviewUrlTool, SandboxGetPublicUrlTool, SandboxKillTool,
-    SandboxListFilesTool, SandboxReadFileTool, SandboxRestoreSnapshotTool, SandboxRunCommandTool,
-    SandboxSaveSnapshotTool, SandboxWriteFileTool,
+    SandboxCreateTool, SandboxGetPackageManagerTool, SandboxGetPreviewUrlTool,
+    SandboxGetPublicUrlTool, SandboxKillTool, SandboxListFilesTool, SandboxReadFileTool,
+    SandboxRestoreSnapshotTool, SandboxRunCommandTool, SandboxSaveSnapshotTool, SandboxWriteFileTool,
 };
 pub use schedule::ScheduleTool;
 #[allow(unused_imports)]
@@ -224,6 +224,7 @@ pub fn sandbox_tools(
         Box::new(SandboxListFilesTool::new(sandbox.clone())),
         Box::new(SandboxGetPreviewUrlTool::new(sandbox.clone())),
         Box::new(SandboxGetPublicUrlTool::new(sandbox.clone())),
+        Box::new(SandboxGetPackageManagerTool::new(sandbox.clone())),
         Box::new(SandboxSaveSnapshotTool::new(
             sandbox.clone(),
             db_path.clone(),
@@ -782,5 +783,17 @@ mod tests {
         );
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(!names.contains(&"delegate"));
+    }
+
+    #[test]
+    fn sandbox_tools_includes_get_package_manager() {
+        use crate::config::ZerobuildConfig;
+        let zb_cfg = Arc::new(ZerobuildConfig::default());
+        let tools = sandbox_tools(zb_cfg, "http://localhost:8080".into());
+        let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+        assert!(
+            names.contains(&"sandbox_get_package_manager"),
+            "sandbox_get_package_manager tool should be registered in sandbox_tools"
+        );
     }
 }

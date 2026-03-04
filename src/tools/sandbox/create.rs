@@ -81,15 +81,27 @@ impl Tool for SandboxCreateTool {
             .create_sandbox(reset, &self.template, self.timeout_ms)
             .await
         {
-            Ok(id) => Ok(ToolResult {
-                success: true,
-                output: format!(
-                    "Sandbox created.\nsandbox_id: {id}\ntemplate: {}\nstatus: running",
-                    self.template
-                ),
-                error: None,
-                error_hint: None,
-            }),
+            Ok(id) => {
+                // Auto-detect package manager after sandbox creation
+                let pm = self.client.detect_package_manager().await;
+                // Build tip based on detected package manager
+                let tip = if pm == crate::sandbox::PackageManager::Npm {
+                    "💡 Tip: Using npm as package manager. Consider installing pnpm for faster installs.".to_string()
+                } else {
+                    format!("💡 Tip: Use '{install}' for faster installs instead of 'npm install'", install = pm.install_cmd())
+                };
+                Ok(ToolResult {
+                    success: true,
+                    output: format!(
+                        "Sandbox created.\nsandbox_id: {id}\ntemplate: {}\nstatus: running\npackage_manager: {pm}\n\n{tip}",
+                        self.template,
+                        pm = pm,
+                        tip = tip
+                    ),
+                    error: None,
+                    error_hint: None,
+                })
+            }
             Err(e) => {
                 let err_msg = format!("{e}");
                 Ok(ToolResult {
