@@ -11,7 +11,7 @@ module.exports = async ({ github, context, core }) => {
     return;
   }
 
-  const ownerAllowlist = ["willsarg"];
+  const ownerAllowlist = ["louisdevzz"];
 
   if (ownerAllowlist.length === 0) {
     core.setFailed("License owner allowlist is empty.");

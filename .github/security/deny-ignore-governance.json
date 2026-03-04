@@ -1,5 +1,5 @@
 {
-  "schema_version": "zeroclaw.deny-governance.v1",
+  "schema_version": "zerobuild.deny-governance.v1",
   "advisories": [
     {
       "id": "RUSTSEC-2025-0141",

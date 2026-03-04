@@ -312,7 +312,7 @@ jobs:
 
                   cat > artifacts/gitleaks-summary.json <<EOF
                   {
-                    "schema_version": "zeroclaw.audit.v1",
+                    "schema_version": "zerobuild.audit.v1",
                     "event_type": "gitleaks_scan",
                     "event_name": "${GITHUB_EVENT_NAME}",
                     "scope": "${scan_scope}",
@@ -385,20 +385,20 @@ jobs:
               run: |
                   set -euo pipefail
                   mkdir -p artifacts
-                  syft dir:. --source-name zeroclaw \
-                    -o cyclonedx-json=artifacts/zeroclaw.cdx.json \
-                    -o spdx-json=artifacts/zeroclaw.spdx.json
+                  syft dir:. --source-name zerobuild \
+                    -o cyclonedx-json=artifacts/zerobuild.cdx.json \
+                    -o spdx-json=artifacts/zerobuild.spdx.json
                   {
                     echo "### SBOM snapshot"
-                    echo "- CycloneDX: artifacts/zeroclaw.cdx.json"
-                    echo "- SPDX: artifacts/zeroclaw.spdx.json"
+                    echo "- CycloneDX: artifacts/zerobuild.cdx.json"
+                    echo "- SPDX: artifacts/zerobuild.spdx.json"
                   } >> "$GITHUB_STEP_SUMMARY"
 
             - name: Upload SBOM artifacts
               uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               with:
                   name: sbom-snapshot
-                  path: artifacts/zeroclaw.*.json
+                  path: artifacts/zerobuild.*.json
                   retention-days: 14
 
             - name: Emit SBOM audit event
@@ -408,10 +408,10 @@ jobs:
                   set -euo pipefail
                   cat > artifacts/sbom-summary.json <<EOF
                   {
-                    "schema_version": "zeroclaw.audit.v1",
+                    "schema_version": "zerobuild.audit.v1",
                     "event_type": "sbom_snapshot",
-                    "cyclonedx_path": "artifacts/zeroclaw.cdx.json",
-                    "spdx_path": "artifacts/zeroclaw.spdx.json"
+                    "cyclonedx_path": "artifacts/zerobuild.cdx.json",
+                    "spdx_path": "artifacts/zerobuild.spdx.json"
                   }
                   EOF
                   python3 scripts/ci/emit_audit_event.py \

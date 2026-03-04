@@ -77,7 +77,7 @@ Notes:
    - `flake-probe` (single-retry telemetry; optional block via `CI_BLOCK_ON_FLAKE_SUSPECTED`)
    - `docs-quality`
 7. If `.github/workflows/**` changed, `workflow-owner-approval` must pass.
-8. If root license files (`LICENSE-APACHE`, `LICENSE-MIT`) changed, `license-file-owner-guard` allows only PR author `willsarg`.
+8. If root license files (`LICENSE-APACHE`, `LICENSE-MIT`) changed, `license-file-owner-guard` allows only PR author `louisdevzz`.
 9. `lint-feedback` posts actionable comment if lint/docs gates fail.
 10. `CI Required Gate` aggregates results to final pass/fail.
 11. Maintainer merges PR once checks and review policy are satisfied.
@@ -85,7 +85,7 @@ Notes:
 
 ### 2) PR from fork -> `dev`
 
-1. External contributor opens PR from `fork/<branch>` into `zeroclaw:dev`.
+1. External contributor opens PR from `fork/<branch>` into `zerobuild:dev`.
 2. Immediately on `opened`:
    - `pull_request_target` workflows start with base-repo context and base-repo token:
      - `pr-intake-checks.yml`
@@ -182,7 +182,7 @@ Workflow: `.github/workflows/pub-release.yml`
    - trigger provenance is emitted as `release-trigger-guard` artifacts.
 3. `build-release` builds matrix artifacts across Linux/macOS/Windows targets.
 4. `verify-artifacts` runs `scripts/ci/release_artifact_guard.py` against `.github/release/release-artifact-contract.json` in verify-stage mode (archive contract required; manifest/SBOM/notice checks intentionally skipped) and uploads `release-artifact-guard-verify` evidence.
-5. In publish mode, workflow generates SBOM (`CycloneDX` + `SPDX`), `SHA256SUMS`, and a checksum provenance statement (`zeroclaw.sha256sums.intoto.json`) plus audit-event envelope.
+5. In publish mode, workflow generates SBOM (`CycloneDX` + `SPDX`), `SHA256SUMS`, and a checksum provenance statement (`zerobuild.sha256sums.intoto.json`) plus audit-event envelope.
 6. In publish mode, after manifest generation, workflow reruns `release_artifact_guard.py` in full-contract mode and emits `release-artifact-guard.publish.json` plus `audit-event-release-artifact-guard-publish.json`.
 7. In publish mode, workflow keyless-signs release artifacts and composes a supply-chain release-notes preface via `release_notes_with_supply_chain_refs.py`.
 8. In publish mode, workflow verifies GHCR release-tag availability.

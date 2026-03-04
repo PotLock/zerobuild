@@ -121,7 +121,7 @@ jobs:
                     --release-ref "${{ steps.vars.outputs.release_ref }}" \
                     --release-tag "${{ steps.vars.outputs.release_tag }}" \
                     --publish-release "${{ steps.vars.outputs.publish_release }}" \
-                    --authorized-actors "${{ vars.RELEASE_AUTHORIZED_ACTORS || 'willsarg,theonlyhennygod,chumyin' }}" \
+                    --authorized-actors "${{ vars.RELEASE_AUTHORIZED_ACTORS || 'louisdevzz' }}" \
                     --authorized-tagger-emails "${{ vars.RELEASE_AUTHORIZED_TAGGER_EMAILS || '' }}" \
                     --require-annotated-tag true \
                     --output-json artifacts/release-trigger-guard.json \
@@ -172,14 +172,14 @@ jobs:
                     # a broadly compatible GLIBC baseline for user distributions.
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: x86_64-unknown-linux-gnu
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
                       linker: ""
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: x86_64-unknown-linux-musl
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
@@ -187,14 +187,14 @@ jobs:
                       use_cross: true
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: aarch64-unknown-linux-gnu
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: gcc-aarch64-linux-gnu
                       linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER
                       linker: aarch64-linux-gnu-gcc
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: aarch64-unknown-linux-musl
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
@@ -202,14 +202,14 @@ jobs:
                       use_cross: true
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: armv7-unknown-linux-gnueabihf
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: gcc-arm-linux-gnueabihf
                       linker_env: CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER
                       linker: arm-linux-gnueabihf-gcc
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: armv7-linux-androideabi
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
@@ -218,7 +218,7 @@ jobs:
                       android_api: 21
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: aarch64-linux-android
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
@@ -227,7 +227,7 @@ jobs:
                       android_api: 21
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: x86_64-unknown-freebsd
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
@@ -235,21 +235,21 @@ jobs:
                       use_cross: true
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: x86_64-apple-darwin
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
                       linker: ""
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: aarch64-apple-darwin
-                      artifact: zeroclaw
+                      artifact: zerobuild
                       archive_ext: tar.gz
                       cross_compiler: ""
                       linker_env: ""
                       linker: ""
                     - os: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
                       target: x86_64-pc-windows-msvc
-                      artifact: zeroclaw.exe
+                      artifact: zerobuild.exe
                       archive_ext: zip
                       cross_compiler: ""
                       linker_env: ""
@@ -368,19 +368,19 @@ jobs:
               if: runner.os != 'Windows'
               run: |
                   cd target/${{ matrix.target }}/release-fast
-                  tar czf ../../../zeroclaw-${{ matrix.target }}.${{ matrix.archive_ext }} ${{ matrix.artifact }}
+                  tar czf ../../../zerobuild-${{ matrix.target }}.${{ matrix.archive_ext }} ${{ matrix.artifact }}
 
             - name: Package (Windows)
               if: runner.os == 'Windows'
               run: |
                   cd target/${{ matrix.target }}/release-fast
-                  7z a ../../../zeroclaw-${{ matrix.target }}.${{ matrix.archive_ext }} ${{ matrix.artifact }}
+                  7z a ../../../zerobuild-${{ matrix.target }}.${{ matrix.archive_ext }} ${{ matrix.artifact }}
 
             - name: Upload artifact
               uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
               with:
-                  name: zeroclaw-${{ matrix.target }}
-                  path: zeroclaw-${{ matrix.target }}.${{ matrix.archive_ext }}
+                  name: zerobuild-${{ matrix.target }}
+                  path: zerobuild-${{ matrix.target }}.${{ matrix.archive_ext }}
                   retention-days: 7
 
     verify-artifacts:
@@ -469,11 +469,11 @@ jobs:
 
             - name: Generate SBOM (CycloneDX)
               run: |
-                  syft dir:. --source-name zeroclaw -o cyclonedx-json=artifacts/zeroclaw.cdx.json -o spdx-json=artifacts/zeroclaw.spdx.json
+                  syft dir:. --source-name zerobuild -o cyclonedx-json=artifacts/zerobuild.cdx.json -o spdx-json=artifacts/zerobuild.spdx.json
                   {
                     echo "### SBOM Generated"
-                    echo "- CycloneDX: zeroclaw.cdx.json"
-                    echo "- SPDX: zeroclaw.spdx.json"
+                    echo "- CycloneDX: zerobuild.cdx.json"
+                    echo "- SPDX: zerobuild.spdx.json"
                   } >> "$GITHUB_STEP_SUMMARY"
 
             - name: Attach license and notice files
@@ -504,8 +504,8 @@ jobs:
                   set -euo pipefail
                   python3 scripts/ci/generate_provenance.py \
                     --artifact artifacts/SHA256SUMS \
-                    --subject-name "zeroclaw-${RELEASE_TAG}-sha256sums" \
-                    --output artifacts/zeroclaw.sha256sums.intoto.json
+                    --subject-name "zerobuild-${RELEASE_TAG}-sha256sums" \
+                    --output artifacts/zerobuild.sha256sums.intoto.json
 
             - name: Emit SHA256SUMS provenance audit event
               shell: bash
@@ -513,7 +513,7 @@ jobs:
                   set -euo pipefail
                   python3 scripts/ci/emit_audit_event.py \
                     --event-type release_sha256sums_provenance \
-                    --input-json artifacts/zeroclaw.sha256sums.intoto.json \
+                    --input-json artifacts/zerobuild.sha256sums.intoto.json \
                     --output-json artifacts/audit-event-release-sha256sums-provenance.json \
                     --artifact-name release-sha256sums-provenance \
                     --retention-days 30

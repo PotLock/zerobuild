@@ -217,7 +217,7 @@ jobs:
                   cp -R docs/. site/docs/
                   cp README.md site/README.md
                   cat > site/index.md <<'EOF'
-                  # ZeroClaw Docs Preview
+                  # ZeroBuild Docs Preview
 
                   This preview bundle is produced by `.github/workflows/docs-deploy.yml`.
 
@@ -260,7 +260,7 @@ jobs:
                   cp -R docs/. site/docs/
                   cp README.md site/README.md
                   cat > site/index.md <<'EOF'
-                  # ZeroClaw Documentation
+                  # ZeroBuild Documentation
 
                   This site is deployed automatically from `main` by `.github/workflows/docs-deploy.yml`.
 

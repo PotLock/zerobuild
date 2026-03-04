@@ -1,5 +1,5 @@
 {
-  "schema_version": "zeroclaw.secrets-governance.v1",
+  "schema_version": "zerobuild.secrets-governance.v1",
   "paths": [
     {
       "pattern": "src/security/leak_detector\\.rs",
