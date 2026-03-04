@@ -29,6 +29,13 @@ impl Tool for SandboxRunCommandTool {
          \
          ✅ REQUIRED for: npm install, npx create-next-app, npm run build, npm run dev, npx, node, python \
          \
+         📦 PACKAGE MANAGER PRIORITY (faster installs): \
+         1. Use `pnpm install` if available (fastest) \
+         2. Use `yarn install` if pnpm unavailable \
+         3. Use `npm install` as fallback \
+         \
+         💡 Call `sandbox_get_package_manager` to check which is available. \
+         \
          ❌ DO NOT use `shell` tool for build operations — it runs locally, not in sandbox! \
          \
          Returns stdout, stderr, and exit_code. \

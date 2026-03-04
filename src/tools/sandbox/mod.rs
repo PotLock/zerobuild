@@ -1,6 +1,6 @@
 //! Sandbox tools for the ZeroBuild Agent.
 //!
-//! Provides 10 tools backed by [`crate::sandbox::local::LocalProcessSandboxClient`]
+//! Provides 10+ tools backed by [`crate::sandbox::local::LocalProcessSandboxClient`]
 //! — a native process sandbox that requires no external API key or Docker daemon.
 //! The tools are thin delegators to the [`SandboxClient`] trait.
 
@@ -8,6 +8,7 @@ pub mod command;
 pub mod create;
 pub mod files;
 pub mod kill;
+pub mod package_manager;
 pub mod preview;
 pub mod restore;
 pub mod snapshot;
@@ -17,6 +18,7 @@ pub use command::SandboxRunCommandTool;
 pub use create::SandboxCreateTool;
 pub use files::{SandboxListFilesTool, SandboxReadFileTool, SandboxWriteFileTool};
 pub use kill::SandboxKillTool;
+pub use package_manager::SandboxGetPackageManagerTool;
 pub use preview::SandboxGetPreviewUrlTool;
 pub use restore::SandboxRestoreSnapshotTool;
 pub use snapshot::SandboxSaveSnapshotTool;

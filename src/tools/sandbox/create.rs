@@ -81,15 +81,21 @@ impl Tool for SandboxCreateTool {
             .create_sandbox(reset, &self.template, self.timeout_ms)
             .await
         {
-            Ok(id) => Ok(ToolResult {
-                success: true,
-                output: format!(
-                    "Sandbox created.\nsandbox_id: {id}\ntemplate: {}\nstatus: running",
-                    self.template
-                ),
-                error: None,
-                error_hint: None,
-            }),
+            Ok(id) => {
+                // Auto-detect package manager after sandbox creation
+                let pm = self.client.detect_package_manager().await;
+                Ok(ToolResult {
+                    success: true,
+                    output: format!(
+                        "Sandbox created.\nsandbox_id: {id}\ntemplate: {}\nstatus: running\npackage_manager: {pm}\n\n💡 Tip: Use '{install}' for faster installs instead of 'npm install'",
+                        self.template,
+                        pm = pm,
+                        install = pm.install_cmd()
+                    ),
+                    error: None,
+                    error_hint: None,
+                })
+            }
             Err(e) => {
                 let err_msg = format!("{e}");
                 Ok(ToolResult {
