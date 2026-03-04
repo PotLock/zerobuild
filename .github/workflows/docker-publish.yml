@@ -4,14 +4,31 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths:
+      # Only build Docker image when code actually changes
+      - 'src/**'
+      - 'crates/**'
+      - 'benches/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Dockerfile'
+      - '.dockerignore'
+      # Exclude documentation changes
+      - '!**.md'
+      - '!docs/**'
   pull_request:
     branches: [main]
     paths:
-      - 'Dockerfile'
-      - '.github/workflows/docker-publish.yml'
+      # Same filters for PR builds
       - 'src/**'
+      - 'crates/**'
+      - 'benches/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '!**.md'
+      - '!docs/**'
   workflow_dispatch:
 
 env:
