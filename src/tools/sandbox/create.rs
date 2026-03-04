@@ -88,7 +88,10 @@ impl Tool for SandboxCreateTool {
                 let tip = if pm == crate::sandbox::PackageManager::Npm {
                     "💡 Tip: Using npm as package manager. Consider installing pnpm for faster installs.".to_string()
                 } else {
-                    format!("💡 Tip: Use '{install}' for faster installs instead of 'npm install'", install = pm.install_cmd())
+                    format!(
+                        "💡 Tip: Use '{install}' for faster installs instead of 'npm install'",
+                        install = pm.install_cmd()
+                    )
                 };
                 Ok(ToolResult {
                     success: true,

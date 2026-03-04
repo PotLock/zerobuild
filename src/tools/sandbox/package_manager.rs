@@ -56,7 +56,7 @@ impl Tool for SandboxGetPackageManagerTool {
 
         // Actively detect package manager instead of using cached state
         let pm = self.client.detect_package_manager().await;
-        
+
         let output = format!(
             "Detected package manager: {pm}\n\
              Install command: {install}\n\

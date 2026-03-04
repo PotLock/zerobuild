@@ -544,7 +544,19 @@ pub struct AgentConfig {
     pub compact_context: bool,
     /// Maximum tool-call loop turns per user message. Default: `25`.
     /// Setting to `0` falls back to the safe default of `25`.
-    /// Increased from 10 to support complex multi-step tasks (see issue #26).
+    ///
+    /// ## Compatibility Note
+    /// This change only alters the default value. Existing configurations with
+    /// explicit `max_tool_iterations` values are respected and will continue to work.
+    ///
+    /// ## Rollback / Migration
+    /// To restore the previous behavior (limit of 10 iterations), explicitly set:
+    /// ```toml
+    /// [agent]
+    /// max_tool_iterations = 10
+    /// ```
+    ///
+    /// See issue #26 for context on why the default was increased.
     #[serde(default = "default_agent_max_tool_iterations")]
     pub max_tool_iterations: usize,
     /// Maximum conversation history messages retained per session. Default: `50`.
@@ -5029,7 +5041,7 @@ reasoning_enabled = false
     async fn agent_config_defaults() {
         let cfg = AgentConfig::default();
         assert!(!cfg.compact_context);
-        assert_eq!(cfg.max_tool_iterations, 10);
+        assert_eq!(cfg.max_tool_iterations, 25);
         assert_eq!(cfg.max_history_messages, 50);
         assert!(!cfg.parallel_tools);
         assert_eq!(cfg.tool_dispatcher, "auto");

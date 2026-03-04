@@ -315,7 +315,7 @@ async fn agent_handles_mixed_tool_success_and_failure() {
 // TG4.3: Iteration limit enforcement (#777)
 // ═════════════════════════════════════════════════════════════════════════════
 
-/// Agent should not exceed max_tool_iterations (default=10) even with
+/// Agent should not exceed max_tool_iterations (default=25) even with
 /// a provider that keeps returning tool calls
 #[tokio::test]
 async fn agent_respects_max_tool_iterations() {

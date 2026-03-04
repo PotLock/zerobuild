@@ -110,10 +110,21 @@ fn validate_labels(labels: &[String]) -> Result<(), String> {
 fn sanitize_labels(labels: &[String]) -> Vec<String> {
     // Known valid scope labels that don't contain spaces
     const VALID_SCOPE_LABELS: &[&str] = &[
-        "provider", "channel", "tool", "gateway", "memory", "runtime", 
-        "config", "ci", "performance", "ui", "api", "database", "deps",
+        "provider",
+        "channel",
+        "tool",
+        "gateway",
+        "memory",
+        "runtime",
+        "config",
+        "ci",
+        "performance",
+        "ui",
+        "api",
+        "database",
+        "deps",
     ];
-    
+
     labels
         .iter()
         .filter(|label| {

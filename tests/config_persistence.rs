@@ -48,8 +48,8 @@ fn config_default_temperature_positive() {
 fn agent_config_default_max_tool_iterations() {
     let agent = AgentConfig::default();
     assert_eq!(
-        agent.max_tool_iterations, 10,
-        "default max_tool_iterations should be 10"
+        agent.max_tool_iterations, 25,
+        "default max_tool_iterations should be 25"
     );
 }
 
