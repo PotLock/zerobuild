@@ -2636,20 +2636,12 @@ pub(crate) async fn run_tool_call_loop(
                         failures = *count,
                         "Tool failed {} consecutive times — escalating to user", *count
                     );
-                    // Add escalation message to output
-                    let escalated_output =
-                        format!("{}\n\n[ESCALATION] {}", outcome.output, escalation_msg);
-                    ordered_results[*idx] = Some((
-                        call.name.clone(),
-                        call.tool_call_id.clone(),
-                        ToolExecutionOutcome {
-                            output: escalated_output,
-                            success: false,
-                            error_reason: outcome.error_reason.clone(),
-                            duration: outcome.duration,
-                        },
-                    ));
-                    continue;
+                    // Return with escalation error to prevent further tool calls
+                    let error_output = format!(
+                        "Tool '{}' failed {} consecutive times. {}",
+                        call.name, *count, escalation_msg
+                    );
+                    return Ok(error_output);
                 }
             }
 
