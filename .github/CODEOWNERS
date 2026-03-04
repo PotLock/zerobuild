@@ -1,0 +1,32 @@
+# Default owner for all files
+* @louisdevzz
+
+# Important functional modules
+/src/agent/** @louisdevzz
+/src/providers/** @louisdevzz
+/src/channels/** @louisdevzz
+/src/tools/** @louisdevzz
+/src/gateway/** @louisdevzz
+/src/runtime/** @louisdevzz
+/src/memory/** @louisdevzz
+/Cargo.toml @louisdevzz
+/Cargo.lock @louisdevzz
+
+# Security / tests / CI-CD ownership
+/src/security/** @louisdevzz
+/tests/** @louisdevzz
+/.github/** @louisdevzz
+/.github/workflows/** @louisdevzz
+/.github/codeql/** @louisdevzz
+/.github/dependabot.yml @louisdevzz
+/SECURITY.md @louisdevzz
+/docs/actions-source-policy.md @louisdevzz
+/docs/ci-map.md @louisdevzz
+
+# Docs & governance
+/docs/** @louisdevzz
+/AGENTS.md @louisdevzz
+/CLAUDE.md @louisdevzz
+/CONTRIBUTING.md @louisdevzz
+/docs/pr-workflow.md @louisdevzz
+/docs/reviewer-playbook.md @louisdevzz
