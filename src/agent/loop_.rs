@@ -1826,6 +1826,11 @@ pub(crate) async fn agent_turn(
     .await
 }
 
+/// Check if a tool name is a GitHub operation tool (requires authentication)
+fn is_github_tool(call_name: &str) -> bool {
+    call_name.starts_with("github_") && call_name != "github_connect"
+}
+
 async fn execute_one_tool(
     call_name: &str,
     call_arguments: serde_json::Value,
@@ -1837,6 +1842,43 @@ async fn execute_one_tool(
         tool: call_name.to_string(),
     });
     let start = Instant::now();
+
+    // ── Auto-connect GitHub before GitHub operations ─────────────────
+    // If calling a GitHub tool (except github_connect itself), ensure authenticated first
+    if is_github_tool(call_name) {
+        if let Some(connect_tool) = find_tool(tools_registry, "github_connect") {
+            tracing::debug!(tool = %call_name, "Auto-checking GitHub connection before operation");
+            let connect_result = connect_tool.execute(serde_json::json!({})).await;
+            match connect_result {
+                Ok(result) if !result.success => {
+                    // Not authenticated - return the connect error (includes OAuth URL)
+                    let duration = start.elapsed();
+                    let error_msg = result.error.unwrap_or_else(|| {
+                        "GitHub is not connected. Please authenticate first.".to_string()
+                    });
+                    observer.record_event(&ObserverEvent::ToolCall {
+                        tool: call_name.to_string(),
+                        duration,
+                        success: false,
+                    });
+                    return Ok(ToolExecutionOutcome {
+                        output: format!("GitHub authentication required: {error_msg}"),
+                        success: false,
+                        error_reason: Some(scrub_credentials(&error_msg)),
+                        duration,
+                    });
+                }
+                Ok(_) => {
+                    // Successfully authenticated, proceed with the actual tool call
+                    tracing::debug!(tool = %call_name, "GitHub connection verified, proceeding with operation");
+                }
+                Err(e) => {
+                    // Error checking connection - still proceed, let the actual tool handle it
+                    tracing::warn!(tool = %call_name, error = %e, "Failed to check GitHub connection, proceeding anyway");
+                }
+            }
+        }
+    }
 
     let Some(tool) = find_tool(tools_registry, call_name) else {
         let reason = format!("Unknown tool: {call_name}");
