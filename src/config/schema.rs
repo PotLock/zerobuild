@@ -542,8 +542,9 @@ pub struct AgentConfig {
     /// When true: bootstrap_max_chars=6000, rag_chunk_limit=2. Use for 13B or smaller models.
     #[serde(default)]
     pub compact_context: bool,
-    /// Maximum tool-call loop turns per user message. Default: `10`.
-    /// Setting to `0` falls back to the safe default of `10`.
+    /// Maximum tool-call loop turns per user message. Default: `25`.
+    /// Setting to `0` falls back to the safe default of `25`.
+    /// Increased from 10 to support complex multi-step tasks (see issue #26).
     #[serde(default = "default_agent_max_tool_iterations")]
     pub max_tool_iterations: usize,
     /// Maximum conversation history messages retained per session. Default: `50`.
@@ -558,7 +559,7 @@ pub struct AgentConfig {
 }
 
 fn default_agent_max_tool_iterations() -> usize {
-    10
+    25
 }
 
 fn default_agent_max_history_messages() -> usize {

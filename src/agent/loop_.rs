@@ -25,7 +25,9 @@ const STREAM_CHUNK_MIN_CHARS: usize = 80;
 
 /// Default maximum agentic tool-use iterations per user message to prevent runaway loops.
 /// Used as a safe fallback when `max_tool_iterations` is unset or configured as zero.
-const DEFAULT_MAX_TOOL_ITERATIONS: usize = 10;
+/// Increased from 10 to 25 to accommodate complex multi-step tasks while maintaining
+/// safety bounds. See issue #26 for context.
+const DEFAULT_MAX_TOOL_ITERATIONS: usize = 25;
 
 /// Minimum user-message length (in chars) for auto-save to memory.
 /// Matches the channel-side constant in `channels/mod.rs`.
@@ -3018,6 +3020,17 @@ pub async fn run(
     if !native_tools {
         system_prompt.push_str(&build_tool_instructions(&tools_registry));
     }
+
+    // Add iteration budget awareness to system prompt
+    let max_iterations = if config.agent.max_tool_iterations == 0 {
+        DEFAULT_MAX_TOOL_ITERATIONS
+    } else {
+        config.agent.max_tool_iterations
+    };
+    system_prompt.push_str(&format!(
+        "\n## Tool Use Budget\n\nYou have a maximum of {} tool-use iterations to complete this task. Plan efficiently:\n\n- **Complex tasks** (build projects, multiple files): ~15-20 iterations\n- **Medium tasks** (modify existing code): ~8-12 iterations\n- **Simple tasks** (read files, explain): ~3-5 iterations\n\nIf approaching the limit, prioritize:\n1. Complete the critical path first (create → build → verify)\n2. Skip verification steps if already confident\n3. Provide partial results with explanation rather than failing\n\n",
+        max_iterations
+    ));
 
     // ── Approval manager (supervised mode) ───────────────────────
     let approval_manager = if interactive {
