@@ -573,7 +573,7 @@ mod tests {
             "comment": {
                 "id": 3,
                 "body": "bot note",
-                "user": { "login": "zeroclaw-bot[bot]", "type": "Bot" }
+                "user": { "login": "zerobuild-bot[bot]", "type": "Bot" }
             }
         });
         let msgs = ch.parse_webhook_payload("issue_comment", &payload);
@@ -628,7 +628,7 @@ mod tests {
 
     #[test]
     fn allowlist_supports_wildcards() {
-        let ch = GitHubChannel::new("t".into(), None, vec!["zeroclaw-labs/*".into()]);
+        let ch = GitHubChannel::new("t".into(), None, vec!["PotLock/*".into()]);
         assert!(ch.repo_is_allowed("louisdevzz/zerobuild"));
         assert!(!ch.repo_is_allowed("other/repo"));
         let all = GitHubChannel::new("t".into(), None, vec!["*".into()]);

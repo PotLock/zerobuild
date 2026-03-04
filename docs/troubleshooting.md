@@ -220,8 +220,8 @@ journalctl --user -u zerobuild.service -f
 Both still work:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/main/scripts/bootstrap.sh | bash
-curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/zerobuild-labs/zerobuild/main/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/zerobuild-labs/zerobuild/main/scripts/install.sh | bash
 ```
 
 `install.sh` is a compatibility entry and forwards/falls back to bootstrap behavior.

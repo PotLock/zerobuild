@@ -1255,7 +1255,7 @@ pub enum ProxyScope {
     Environment,
     /// Apply proxy to all ZeroBuild-managed HTTP traffic (default).
     #[default]
-    Zeroclaw,
+    Zerobuild,
     /// Apply proxy only to explicitly listed service selectors.
     Services,
 }
@@ -1294,7 +1294,7 @@ impl Default for ProxyConfig {
             https_proxy: None,
             all_proxy: None,
             no_proxy: Vec::new(),
-            scope: ProxyScope::Zeroclaw,
+            scope: ProxyScope::Zerobuild,
             services: Vec::new(),
         }
     }
@@ -1367,7 +1367,7 @@ impl ProxyConfig {
 
         match self.scope {
             ProxyScope::Environment => false,
-            ProxyScope::Zeroclaw => true,
+            ProxyScope::Zerobuild => true,
             ProxyScope::Services => {
                 let service_key = service_key.trim().to_ascii_lowercase();
                 if service_key.is_empty() {
@@ -1696,7 +1696,7 @@ pub fn build_runtime_proxy_client_with_timeouts(
 fn parse_proxy_scope(raw: &str) -> Option<ProxyScope> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "environment" | "env" => Some(ProxyScope::Environment),
-        "zerobuild" | "internal" | "core" => Some(ProxyScope::Zeroclaw),
+        "zerobuild" | "internal" | "core" => Some(ProxyScope::Zerobuild),
         "services" | "service" => Some(ProxyScope::Services),
         _ => None,
     }

@@ -1,6 +1,6 @@
 # zerobuild-tools
 
-Python companion package for [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) — LangGraph-based tool calling for consistent LLM agent execution.
+Python companion package for [ZeroBuild](https://github.com/zerobuild-labs/zerobuild) — LangGraph-based tool calling for consistent LLM agent execution.
 
 ## Why This Package?
 

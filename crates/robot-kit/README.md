@@ -88,7 +88,7 @@ pip install piper-tts
 
 ```bash
 # Clone and build
-git clone https://github.com/zeroclaw-labs/zeroclaw
+git clone https://github.com/zerobuild-labs/zerobuild
 cd zerobuild
 cargo build -p zerobuild-robot-kit --release
 ```
