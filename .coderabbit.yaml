@@ -1,75 +1,129 @@
-# CodeRabbit configuration for ZeroBuild
-# Documentation: https://docs.coderabbit.ai/reference/configuration
+# CodeRabbit AI Code Review Configuration for ZeroBuild
+# https://docs.coderabbit.ai/guides/configure-coderabbit
 
+version: 1
+
+# Language settings
 language: en-US
+
+# Tone instructions for review comments
+tone_instructions: |
+  Provide constructive, actionable feedback. Be concise but thorough.
+  Focus on code quality, security, and maintainability. Use a professional,
+  helpful tone. Avoid nitpicking on style issues that are handled by linters.
+
+# Early access features
 early_access: false
 
-# Enable tone control for reviews
+# Review settings
 reviews:
-  # Request changes workflow
-  request_changes_workflow: false
-  
-  # High level summary of the PR
+  # High-level review request settings
+  request_changes_workflow: true
   high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  path_filters: []
   
-  # Generate sequence diagrams
-  sequence_diagrams: true
+  # Path-based instructions
+  path_instructions:
+    - path: "src/**/*.rs"
+      instructions: |
+        Review Rust code for:
+        - Memory safety and proper error handling
+        - Idiomatic Rust patterns and best practices
+        - Async/await usage and runtime efficiency
+        - Security considerations (input validation, safe unsafe blocks)
+        - Proper documentation for public APIs
+        - Test coverage for new functionality
+    
+    - path: ".github/workflows/*.yml"
+      instructions: |
+        Review GitHub Actions workflows for:
+        - Security best practices (no hardcoded secrets, proper permissions)
+        - Efficiency (caching, parallelization)
+        - Correct trigger conditions
+        - Pinning of third-party actions to specific commits
+    
+    - path: "Cargo.toml"
+      instructions: |
+        Review dependencies for:
+        - Security vulnerabilities
+        - License compatibility
+        - Version pinning strategy
+        - Unnecessary dependencies
+    
+    - path: "**/*.md"
+      instructions: |
+        Review documentation for:
+        - Clarity and accuracy
+        - Proper formatting
+        - Broken links
+        - Consistency with codebase
   
-  # Auto-review configuration
+  # Auto-review settings
   auto_review:
     enabled: true
-    # Only review PRs targeting these branches
-    base_branches:
-      - main
-      - develop
-    # Skip reviews for draft PRs or WIP
     drafts: false
-    # Enable base branch analysis
-    base_branch_analysis: true
+    base_branches:
+      - "main"
+      - "dev"
+      - "feat/*"
+      - "fix/*"
+      - "chore/*"
   
-  # Poem configuration
-  poem:
-    enabled: false
-  
-  # Reviewer suggestions
-  reviewer:
-    # Suggest reviewers based on blame data
-    enabled: true
-    # Automatically assign suggested reviewers
-    auto_assign: false
-  
-  # Enable finishing touches
-  finishing_touches:
-    # Generate docstrings
-    docstrings:
+  # Tools integration
+  tools:
+    # ShellCheck for shell scripts
+    shellcheck:
       enabled: true
-    # Generate unit tests
-    unit_tests:
+    
+    # Rust-specific tools
+    clippy:
+      enabled: true
+    
+    rustfmt:
+      enabled: true
+    
+    # GitHub Actions validator
+    actionlint:
+      enabled: true
+    
+    # Markdown linting
+    markdownlint:
       enabled: true
 
-# Tools configuration
-tools:
-  # Rust-specific tools
-  cargo:
-    enabled: true
-  
-# Chat configuration
+# Chat settings
 chat:
   auto_reply: true
 
-# Path filters - ignore generated files
-path_filters:
-  - "!**/target/**"
-  - "!**/node_modules/**"
-  - "!**/.cargo/**"
-  - "!**/Cargo.lock"
+# Knowledge base (optional)
+knowledge_base:
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto
 
-# Review instructions specific to Rust and this project
-review_instructions:
-  - "Focus on Rust best practices and idiomatic code"
-  - "Check for security vulnerabilities in encryption/crypto code"
-  - "Ensure proper error handling with Result types"
-  - "Verify memory safety and avoid unnecessary clones"
-  - "Check for proper use of lifetimes and borrowing"
-  - "Ensure tests cover critical security paths"
-  - "Review configuration migration code carefully"
+# Additional configuration
+tests:
+  # Patterns to identify test files
+  pattern:
+    - "**/tests/**/*.rs"
+    - "**/*_test.rs"
+    - "**/test_*.rs"
+  
+  # Whether to suggest tests for new code
+  suggest_tests: true
+
+# Ignore patterns
+ignore:
+  - "target/**"
+  - "**/*.lock"
+  - "**/node_modules/**"
+  - ".git/**"
+  - "**/*.min.js"
+  - "**/*.min.css"
+  - "dist/**"
+  - "build/**"
