@@ -1,37 +1,104 @@
 name: PR Intake Checks
 
 on:
-    pull_request_target:
-        branches: [dev, main]
-        types: [opened, reopened, synchronize, edited, ready_for_review]
-
-concurrency:
-    group: pr-intake-checks-${{ github.event.pull_request.number || github.run_id }}
-    cancel-in-progress: true
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
 permissions:
-    contents: read
-    pull-requests: write
-    issues: write
-
-env:
-    GIT_CONFIG_COUNT: "1"
-    GIT_CONFIG_KEY_0: core.hooksPath
-    GIT_CONFIG_VALUE_0: /dev/null
-
+  contents: read
+  pull-requests: write
 
 jobs:
-    intake:
-        name: Intake Checks
-        runs-on: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
-        timeout-minutes: 10
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+  pr-intake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+          sparse-checkout-cone-mode: false
 
-            - name: Run safe PR intake checks
-              uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-              with:
-                  script: |
-                      const script = require('./.github/workflows/scripts/pr_intake_checks.js');
-                      await script({ github, context, core });
+      - name: Check PR and post feedback
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            const body = pr.body || '';
+            const title = pr.title || '';
+            const warnings = [];
+            const blocking = [];
+
+            // Check PR template sections
+            const requiredSections = [
+              'Summary',
+              'Problem statement',
+              'Proposed solution',
+              'Acceptance criteria'
+            ];
+
+            const missingSections = requiredSections.filter(section => 
+              !body.includes(section)
+            );
+
+            if (missingSections.length > 0) {
+              warnings.push(`Missing sections: ${missingSections.join(', ')}`);
+            }
+
+            // Check for issue reference
+            if (!/#\d+/.test(body) && !/#\d+/.test(title)) {
+              warnings.push('No issue reference found (recommended for traceability)');
+            }
+
+            // Check for large PR
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            const totalChanges = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+            if (totalChanges > 500) {
+              warnings.push(`Large PR: ${totalChanges} lines changed`);
+            }
+
+            // Check for merge conflicts
+            for (const file of files) {
+              if (file.patch && (file.patch.includes('<<<<<<<') || file.patch.includes('=======') || file.patch.includes('>>>>>>>'))) {
+                blocking.push(`Merge conflicts in ${file.filename}`);
+              }
+            }
+
+            // Build comment
+            let commentBody = '';
+            
+            if (blocking.length > 0) {
+              commentBody += '## PR Intake Checks - Blocking Issues\n\n';
+              commentBody += '❌ These issues must be resolved before merging:\n\n';
+              blocking.forEach(e => commentBody += `- ${e}\n`);
+              commentBody += '\n---\n\n';
+            }
+
+            if (warnings.length > 0) {
+              commentBody += '## PR Intake Checks - Warnings (non-blocking)\n\n';
+              commentBody += 'The following are recommendations:\n\n';
+              warnings.forEach(w => commentBody += `- ${w}\n`);
+            }
+
+            if (commentBody) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+
+            if (blocking.length > 0) {
+              core.setFailed('Blocking issues found in PR');
+            }
