@@ -784,4 +784,16 @@ mod tests {
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(!names.contains(&"delegate"));
     }
+
+    #[test]
+    fn sandbox_tools_includes_get_package_manager() {
+        use crate::config::ZerobuildConfig;
+        let zb_cfg = Arc::new(ZerobuildConfig::default());
+        let tools = sandbox_tools(zb_cfg, "http://localhost:8080".into());
+        let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+        assert!(
+            names.contains(&"sandbox_get_package_manager"),
+            "sandbox_get_package_manager tool should be registered in sandbox_tools"
+        );
+    }
 }

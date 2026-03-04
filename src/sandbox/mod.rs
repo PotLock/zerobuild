@@ -15,14 +15,16 @@ use std::fmt;
 
 /// Package manager types supported by the sandbox, ordered by priority.
 /// Priority: pnpm > yarn > npm
+/// 
+/// Note: Default is Npm as the safe fallback, but detection prioritizes pnpm/yarn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PackageManager {
     /// pnpm - fastest, most disk efficient (highest priority)
-    #[default]
     Pnpm,
     /// yarn - good performance, widely adopted
     Yarn,
     /// npm - default fallback, always available
+    #[default]
     Npm,
 }
 

@@ -31,6 +31,7 @@ pub const TOOL_WRITE_FILE: &str = "sandbox_write_file";
 pub const TOOL_READ_FILE: &str = "sandbox_read_file";
 pub const TOOL_LIST_FILES: &str = "sandbox_list_files";
 pub const TOOL_GET_PREVIEW_URL: &str = "sandbox_get_preview_url";
+pub const TOOL_GET_PACKAGE_MANAGER: &str = "sandbox_get_package_manager";
 pub const TOOL_SAVE_SNAPSHOT: &str = "sandbox_save_snapshot";
 pub const TOOL_RESTORE_SNAPSHOT: &str = "sandbox_restore_snapshot";
 pub const TOOL_KILL: &str = "sandbox_kill";
