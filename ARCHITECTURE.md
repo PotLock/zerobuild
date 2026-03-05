@@ -2,7 +2,7 @@
 
 ## Vision
 
-ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **Hierarchical Multi-Agent System**, a user provides a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Orchestrator (CEO), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate autonomously to automate the entire software development lifecycle and deliver a production-ready product.
+ZeroBuild lets you **build and host your own autonomous software factory**. Through a **Hierarchical Multi-Agent System**, a user provides a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Orchestrator (CEO), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate autonomously to automate the entire software development lifecycle and deliver a production-ready product.
 
 **Core promise:** From idea to working software in minutes, not months. Zero coding. Zero management. Ultra-low cost.
 
@@ -10,7 +10,7 @@ ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **
 
 ## Multi-Agent Factory Architecture
 
-### Agent Role Hierarchy — The Virtual Software Company
+### Agent Role Hierarchy — The Autonomous Software Factory
 
 ```
 User provides idea (any channel: Telegram / Discord / Slack / CLI)

@@ -5,7 +5,7 @@ Scope: entire repository.
 
 ## 1) Project Snapshot (Read First)
 
-**This repository is ZeroBuild — the Autonomous Software Factory.** A Virtual Software Company powered entirely by AI, forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
+**This repository is ZeroBuild — the Autonomous Software Factory.** Build and host your own AI-powered software development system, forked from [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw). See `AGENTS.md` for ZeroBuild-specific rules.
 
 **ZeroBuild** is a hierarchical multi-agent system that automates the entire software development lifecycle:
 - **Orchestrator (CEO)** — Receives user ideas, analyzes feasibility, spawns specialized sub-agents, coordinates phased execution, and reports progress.

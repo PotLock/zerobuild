@@ -1,6 +1,6 @@
 # AGENTS.md — ZeroBuild: Autonomous Software Factory Protocol
 
-> **ZeroBuild is a Virtual Software Company powered entirely by AI.** Through a hierarchical multi-agent system, it automates the entire software development lifecycle — from idea to production-ready code. Built on [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw), the Rust-first autonomous agent runtime.
+> **ZeroBuild lets you build and host your own autonomous software factory.** Through a hierarchical multi-agent system, it automates the entire software development lifecycle — from idea to production-ready code. Built on [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw), the Rust-first autonomous agent runtime.
 
 This file defines the default working protocol for coding agents in this repository.
 Scope: entire repository (Rust runtime only — Node.js backend removed).
@@ -87,7 +87,7 @@ Local Process Sandbox      ← Isolated build sandbox
 
 ### Why this architecture
 
-1. **Virtual Software Company**: Mirrors a real dev team — Orchestrator delegates to specialists, each owns their domain.
+1. **Autonomous Software Factory**: Mirrors a real dev team — Orchestrator delegates to specialists, each owns their domain.
 2. **Autonomous SDLC**: The full lifecycle (requirements → design → code → test → deploy) runs without human intervention at technical steps.
 3. **Self-healing loops**: Dev-Tester ping-pong with hard iteration cap prevents infinite loops while ensuring quality.
 4. **Security boundary preserved**: OAuth tokens stored in SQLite only, never in logs or agent messages. Sandbox uses `env_clear()`.

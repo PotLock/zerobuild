@@ -5,7 +5,7 @@
 <h1 align="center">ZeroBuild — Autonomous Software Factory 🏭</h1>
 
 <p align="center">
-  <strong>A Virtual Software Company powered entirely by AI.</strong><br>
+  <strong>Build and host your own autonomous software factory.</strong><br>
   ⚡️ <strong>From idea to production — a hierarchical multi-agent team of AI specialists (Orchestrator, BA, UI/UX, Dev, Tester, DevOps) auto-builds your software. Zero coding. Zero management. Deploy-ready.</strong>
 </p>
 
@@ -31,13 +31,13 @@ Built on <a href="https://github.com/zeroclaw-labs/zeroclaw">ZeroClaw</a> — th
   No coding skills. No team management. Just results.
 </p>
 
-<p align="center"><code>Virtual Software Company · Hierarchical Multi-Agent · Zero Management · Isolated Sandboxes · Deploy-Ready</code></p>
+<p align="center"><code>Autonomous Software Factory · Hierarchical Multi-Agent · Zero Management · Isolated Sandboxes · Deploy-Ready</code></p>
 
 ---
 
 ## ✨ What is ZeroBuild?
 
-ZeroBuild is a **Virtual Software Company** powered entirely by AI. Through a **Hierarchical Multi-Agent System**, you provide a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Orchestrator (CEO), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate to automate the entire software development lifecycle and deliver a production-ready product.
+ZeroBuild is an **Autonomous Software Factory** that lets you build and host your own AI-powered software development system. Through a **Hierarchical Multi-Agent System**, you provide a raw idea in natural language, and ZeroBuild automatically assembles a team of AI specialists — Orchestrator (CEO), Business Analyst, UI/UX Designer, Developer, Tester, and DevOps Engineer — that coordinate to automate the entire software development lifecycle and deliver a production-ready product.
 
 **Think of it as hiring an entire software team, but it's all AI — and it costs pennies.**
 
@@ -94,7 +94,7 @@ See the full [Setup Guide](docs/setup-guide.md) for detailed instructions.
 
 ---
 
-## 🏗️ Architecture — The Virtual Software Company
+## 🏗️ Architecture — The Autonomous Software Factory
 
 ```
 User provides idea (natural language)
@@ -182,7 +182,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full multi-agent design.
 
 | Feature | Description |
 |---------|-------------|
-| **Virtual Software Company** | A full AI team (PM, BA, UI/UX, Dev, Tester, DevOps) that builds your software autonomously |
+| **Autonomous Software Factory** | A full AI team (PM, BA, UI/UX, Dev, Tester, DevOps) that builds your software autonomously |
 | **Hierarchical Multi-Agent** | Orchestrator (CEO) spawns, delegates, and supervises specialized sub-agents with cross-agent collaboration |
 | **Auto Dev-Test Loops** | Developer and Tester agents iterate automatically until all tests pass — no human intervention |
 | **Full SDLC Automation** | Requirements → Design → Code → Test → Deploy, entirely automated |
