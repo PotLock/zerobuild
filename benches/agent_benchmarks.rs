@@ -115,6 +115,7 @@ impl Tool for NoopTool {
             success: true,
             output: String::new(),
             error: None,
+            error_hint: None,
         })
     }
 }
