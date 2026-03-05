@@ -128,7 +128,26 @@ impl SandboxClient for LocalProcessSandboxClient {
         // Determine sandbox base directory
         // Priority: $ZEROBUILD_SANDBOX_PATH > ~/.zerobuild/workspace/sandbox/
         let sandbox_base = if let Ok(custom_path) = std::env::var("ZEROBUILD_SANDBOX_PATH") {
-            PathBuf::from(custom_path)
+            // Validate custom path
+            if custom_path.is_empty() {
+                anyhow::bail!("ZEROBUILD_SANDBOX_PATH environment variable is set but empty");
+            }
+            let path = PathBuf::from(&custom_path);
+            // Reject relative paths - require absolute paths
+            if !path.is_absolute() {
+                anyhow::bail!(
+                    "ZEROBUILD_SANDBOX_PATH must be an absolute path, got: {}",
+                    custom_path
+                );
+            }
+            // Reject paths containing parent directory traversal (..)
+            if path.components().any(|c| matches!(c, Component::ParentDir)) {
+                anyhow::bail!(
+                    "ZEROBUILD_SANDBOX_PATH contains parent directory traversal (..): {}",
+                    custom_path
+                );
+            }
+            path
         } else {
             // Default to ~/.zerobuild/workspace/sandbox/
             let home = std::env::var("HOME")
@@ -636,5 +655,147 @@ mod tests {
         let client = LocalProcessSandboxClient::new();
         let url = client.get_preview_url(3000).await.unwrap();
         assert_eq!(url, "http://localhost:3000");
+    }
+
+    // Tests for sandbox path selection logic (ZEROBUILD_SANDBOX_PATH validation)
+
+    #[tokio::test]
+    async fn sandbox_path_uses_custom_absolute_path_from_env() {
+        // Create a temporary directory to use as custom sandbox base
+        let temp_dir = tempfile::tempdir().unwrap();
+        let custom_path = temp_dir.path().to_path_buf();
+
+        // Set the environment variable
+        std::env::set_var("ZEROBUILD_SANDBOX_PATH", custom_path.as_os_str());
+
+        let client = LocalProcessSandboxClient::new();
+        let id = client.create_sandbox(false, "", 30_000).await.unwrap();
+
+        // Verify sandbox was created under the custom path
+        let custom_path_str = custom_path
+            .to_str()
+            .expect("custom path should be valid UTF-8");
+        assert!(
+            id.starts_with(custom_path_str),
+            "Sandbox should be under custom path: {}",
+            id
+        );
+        assert!(
+            id.contains("zerobuild-sandbox-"),
+            "Sandbox dir should contain 'zerobuild-sandbox-': {}",
+            id
+        );
+        assert!(
+            std::path::Path::new(&id).exists(),
+            "Sandbox directory should exist"
+        );
+
+        // Clean up
+        client.kill_sandbox().await.unwrap();
+        std::env::remove_var("ZEROBUILD_SANDBOX_PATH");
+    }
+
+    #[tokio::test]
+    async fn sandbox_path_falls_back_to_default_when_env_not_set() {
+        // Ensure env var is not set
+        std::env::remove_var("ZEROBUILD_SANDBOX_PATH");
+
+        let client = LocalProcessSandboxClient::new();
+        let id = client.create_sandbox(false, "", 30_000).await.unwrap();
+
+        // Verify sandbox was created under default location (~/.zerobuild/workspace/sandbox/)
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .expect("HOME or USERPROFILE should be set");
+        let expected_base = std::path::PathBuf::from(home)
+            .join(".zerobuild")
+            .join("workspace")
+            .join("sandbox");
+
+        let expected_base_str = expected_base
+            .to_str()
+            .expect("expected base should be valid UTF-8");
+        assert!(
+            id.starts_with(expected_base_str),
+            "Sandbox should be under default path {} but got: {}",
+            expected_base.display(),
+            id
+        );
+        assert!(
+            std::path::Path::new(&id).exists(),
+            "Sandbox directory should exist"
+        );
+
+        // Clean up
+        client.kill_sandbox().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sandbox_path_rejects_empty_env_var() {
+        // Set empty environment variable
+        std::env::set_var("ZEROBUILD_SANDBOX_PATH", "");
+
+        let client = LocalProcessSandboxClient::new();
+        let result = client.create_sandbox(false, "", 30_000).await;
+
+        // Should fail with error about empty path
+        assert!(
+            result.is_err(),
+            "Should fail when ZEROBUILD_SANDBOX_PATH is empty"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("empty"),
+            "Error should mention empty variable: {}",
+            err
+        );
+
+        std::env::remove_var("ZEROBUILD_SANDBOX_PATH");
+    }
+
+    #[tokio::test]
+    async fn sandbox_path_rejects_relative_path() {
+        // Set a relative path
+        std::env::set_var("ZEROBUILD_SANDBOX_PATH", "relative/path/to/sandbox");
+
+        let client = LocalProcessSandboxClient::new();
+        let result = client.create_sandbox(false, "", 30_000).await;
+
+        // Should fail with error about relative path
+        assert!(
+            result.is_err(),
+            "Should fail when ZEROBUILD_SANDBOX_PATH is relative"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("absolute"),
+            "Error should mention absolute path requirement: {}",
+            err
+        );
+
+        std::env::remove_var("ZEROBUILD_SANDBOX_PATH");
+    }
+
+    #[tokio::test]
+    async fn sandbox_path_rejects_parent_traversal() {
+        // Set a path with parent directory traversal
+        std::env::set_var("ZEROBUILD_SANDBOX_PATH", "/tmp/../etc/sandbox");
+
+        let client = LocalProcessSandboxClient::new();
+        let result = client.create_sandbox(false, "", 30_000).await;
+
+        // Should fail with error about parent traversal
+        assert!(
+            result.is_err(),
+            "Should fail when ZEROBUILD_SANDBOX_PATH contains .."
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("parent directory traversal") || err.contains(".."),
+            "Error should mention parent directory traversal: {}",
+            err
+        );
+
+        std::env::remove_var("ZEROBUILD_SANDBOX_PATH");
     }
 }
