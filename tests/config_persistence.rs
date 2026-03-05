@@ -198,7 +198,7 @@ default_temperature = 0.7
     let parsed: Config = toml::from_str(minimal_toml).expect("minimal TOML should parse");
 
     // Agent config should use defaults
-    assert_eq!(parsed.agent.max_tool_iterations, 10);
+    assert_eq!(parsed.agent.max_tool_iterations, 25);
     assert_eq!(parsed.agent.max_history_messages, 50);
     assert!(!parsed.agent.compact_context);
 }
