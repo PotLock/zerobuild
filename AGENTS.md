@@ -244,7 +244,19 @@ Before every significant tool call, the agent MUST send a short, plain-language 
 
 ### 5.2 Plan enforcement
 
-The ZeroBuild Agent must always propose and confirm a plan before building. This is enforced at system-prompt level.
+The ZeroBuild Agent **must** propose and confirm a plan before executing any tool that modifies state. This is enforced at the code level in `src/agent/agent.rs`.
+
+**Mandatory plan step behavior:**
+- On the first tool iteration, if the agent intends to execute write operations (file_write, shell commands, github_push, etc.), a plan is automatically generated
+- The plan lists each intended action:
+  - Files to be created/modified/deleted
+  - Commands to be executed
+  - Expected outcomes
+- User must explicitly approve with "yes" before execution proceeds
+- If rejected, no tools are executed and a message is returned to the user
+- Read-only operations (file_read, list_files) skip plan confirmation
+
+**Implementation:** See `generate_and_confirm_plan()` in `src/agent/agent.rs`
 
 Never skip the plan step. Plan-before-build is a core product guarantee.
 
