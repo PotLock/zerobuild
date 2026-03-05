@@ -434,95 +434,6 @@ impl Agent {
         self.model_name.clone()
     }
 
-    /// Generate a plan for the upcoming task and get user confirmation.
-    ///
-    /// This is the mandatory plan-before-execute step required by issue #21.
-    /// The agent must present a clear plan outlining what it intends to do
-    /// before any tool execution begins.
-    async fn generate_and_confirm_plan(
-        &mut self,
-        model: &str,
-        calls: &[ParsedToolCall],
-    ) -> Result<bool> {
-        // Skip plan for read-only operations (only file_read, list_files, etc.)
-        let has_write_ops = calls.iter().any(|call| {
-            matches!(
-                call.name.as_str(),
-                "file_write"
-                    | "file_edit"
-                    | "shell"
-                    | "sandbox_run_command"
-                    | "sandbox_write_file"
-                    | "github_push"
-            )
-        });
-
-        if !has_write_ops {
-            // Read-only operations don't need plan confirmation
-            return Ok(true);
-        }
-
-        // Build plan based on actual tool calls
-        let mut plan_lines = vec!["📋 EXECUTION PLAN:".to_string()];
-        plan_lines.push("".to_string());
-
-        for (i, call) in calls.iter().enumerate() {
-            let action = match call.name.as_str() {
-                "file_write" => {
-                    if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
-                        format!("Create/modify file: {}", path)
-                    } else {
-                        format!("Write file (arguments unclear)")
-                    }
-                }
-                "file_read" => {
-                    if let Some(path) = call.arguments.get("path").and_then(|v| v.as_str()) {
-                        format!("Read file: {}", path)
-                    } else {
-                        format!("Read file")
-                    }
-                }
-                "shell" | "sandbox_run_command" => {
-                    if let Some(cmd) = call.arguments.get("command").and_then(|v| v.as_str()) {
-                        format!("Execute command: {}", cmd)
-                    } else {
-                        format!("Run command")
-                    }
-                }
-                "github_push" => "Push changes to GitHub".to_string(),
-                _ => format!("Call tool: {}", call.name),
-            };
-            plan_lines.push(format!("  {}. {}", i + 1, action));
-        }
-
-        plan_lines.push("".to_string());
-        plan_lines.push("Do you approve this plan? (yes/no): ".to_string());
-
-        // Present plan to user
-        let plan_text = plan_lines.join("\n");
-        print!("\n{}", plan_text);
-        let _ = std::io::stdout().flush();
-
-        // Get user confirmation
-        let mut input = String::new();
-        std::io::stdin()
-            .read_line(&mut input)
-            .map_err(|e| anyhow::anyhow!("Failed to read user input: {e}"))?;
-
-        let confirmed = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
-
-        if confirmed {
-            // Add plan to history
-            self.history
-                .push(ConversationMessage::Chat(ChatMessage::assistant(format!(
-                    "PLAN (approved by user):\n{}",
-                    plan_lines[..plan_lines.len() - 1].join("\n")
-                ))));
-        }
-
-        Ok(confirmed)
-    }
-
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
         if self.history.is_empty() {
             let system_prompt = self.build_system_prompt()?;
@@ -556,7 +467,7 @@ impl Agent {
 
         let effective_model = self.classify_model(user_message);
 
-        for iteration in 0..self.config.max_tool_iterations {
+        for _ in 0..self.config.max_tool_iterations {
             let messages = self.tool_dispatcher.to_provider_messages(&self.history);
             let response = match self
                 .provider
@@ -593,17 +504,6 @@ impl Agent {
                 self.trim_history();
 
                 return Ok(final_text);
-            }
-
-            // ── Mandatory Plan Step (Issue #21) ────────────────────────────────────────
-            // On first tool iteration, generate and confirm a plan before execution
-            if iteration == 0 {
-                let plan_confirmed = self
-                    .generate_and_confirm_plan(&effective_model, &calls)
-                    .await?;
-                if !plan_confirmed {
-                    return Ok("Plan rejected by user. No changes were made.".to_string());
-                }
             }
 
             if !text.is_empty() {
