@@ -1,9 +1,10 @@
-//! Local process sandbox provider — runs commands in an isolated temp directory.
+//! Local process sandbox provider — runs commands in an isolated directory.
 //!
-//! No external API key or Docker daemon required. Creates a temporary directory
-//! under `$TMPDIR/zerobuild-sandbox-{uuid}/`, runs commands via
-//! `tokio::process::Command` with a restricted environment, and constrains all
-//! file operations to the sandbox directory (rejects `..` path components).
+//! No external API key or Docker daemon required. Creates a sandbox directory
+//! under `~/.zerobuild/workspace/sandbox/zerobuild-sandbox-{uuid}/` (or custom
+//! path via `$ZEROBUILD_SANDBOX_PATH`), runs commands via `tokio::process::Command`
+//! with a restricted environment, and constrains all file operations to the
+//! sandbox directory (rejects `..` path components).
 //!
 //! **Isolation model:**
 //! - Filesystem: path-constrained to sandbox dir; `..` components are rejected.
@@ -124,11 +125,30 @@ impl SandboxClient for LocalProcessSandboxClient {
         }
         *self.sandbox_id.lock() = None;
 
-        // Create new sandbox dir: $TMPDIR/zerobuild-sandbox-{uuid}/
-        let tmp_base = std::env::temp_dir();
-        let sandbox_dir = tmp_base.join(format!("zerobuild-sandbox-{}", Uuid::new_v4()));
-        std::fs::create_dir_all(&sandbox_dir)
-            .map_err(|e| anyhow::anyhow!("Failed to create sandbox dir: {e}"))?;
+        // Determine sandbox base directory
+        // Priority: $ZEROBUILD_SANDBOX_PATH > ~/.zerobuild/workspace/sandbox/
+        let sandbox_base = if let Ok(custom_path) = std::env::var("ZEROBUILD_SANDBOX_PATH") {
+            PathBuf::from(custom_path)
+        } else {
+            // Default to ~/.zerobuild/workspace/sandbox/
+            let home = std::env::var("HOME")
+                .or_else(|_| std::env::var("USERPROFILE"))
+                .map_err(|_| anyhow::anyhow!("Unable to determine home directory"))?;
+            PathBuf::from(home)
+                .join(".zerobuild")
+                .join("workspace")
+                .join("sandbox")
+        };
+
+        // Create new sandbox dir: {sandbox_base}/zerobuild-sandbox-{uuid}/
+        let sandbox_dir = sandbox_base.join(format!("zerobuild-sandbox-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&sandbox_dir).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to create sandbox dir at {}: {}",
+                sandbox_dir.display(),
+                e
+            )
+        })?;
 
         // Pre-create sub-directories used for npm cache redirection
         for sub in &[".npm-cache", ".npm-global", "tmp"] {
