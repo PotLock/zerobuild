@@ -651,6 +651,7 @@ mod tests {
                     text: Some("done".into()),
                     tool_calls: vec![],
                     usage: None,
+                    reasoning_content: None,
                 });
             }
             Ok(guard.remove(0))
@@ -678,6 +679,7 @@ mod tests {
                 success: true,
                 output: "tool-out".into(),
                 error: None,
+                error_hint: None,
             })
         }
     }
@@ -689,6 +691,7 @@ mod tests {
                 text: Some("hello".into()),
                 tool_calls: vec![],
                 usage: None,
+                reasoning_content: None,
             }]),
         });
 
@@ -728,11 +731,13 @@ mod tests {
                         arguments: "{}".into(),
                     }],
                     usage: None,
+                    reasoning_content: None,
                 },
                 crate::providers::ChatResponse {
                     text: Some("done".into()),
                     tool_calls: vec![],
                     usage: None,
+                    reasoning_content: None,
                 },
             ]),
         });

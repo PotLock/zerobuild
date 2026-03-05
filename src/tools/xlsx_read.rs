@@ -136,6 +136,7 @@ fn extract_xlsx_text_with_limits(
 fn parse_shared_strings<R: std::io::Read + std::io::Seek>(
     archive: &mut zip::ZipArchive<R>,
 ) -> anyhow::Result<Vec<String>> {
+    use quick_xml::escape::unescape;
     use quick_xml::events::Event;
     use quick_xml::Reader;
     use std::io::Read;
@@ -179,7 +180,8 @@ fn parse_shared_strings<R: std::io::Read + std::io::Seek>(
             }
             Ok(Event::Text(e)) => {
                 if in_t {
-                    current.push_str(&e.unescape()?);
+                    let decoded = e.decode()?;
+                    current.push_str(&unescape(&decoded)?);
                 }
             }
             Ok(Event::Eof) => break,
@@ -310,6 +312,7 @@ fn parse_workbook_rels<R: std::io::Read + std::io::Seek>(
 ///
 /// Cells are output as tab-separated values per row, newline-separated per row.
 fn extract_sheet_cells(xml: &str, shared_strings: &[String]) -> anyhow::Result<String> {
+    use quick_xml::escape::unescape;
     use quick_xml::events::Event;
     use quick_xml::Reader;
 
@@ -402,7 +405,8 @@ fn extract_sheet_cells(xml: &str, shared_strings: &[String]) -> anyhow::Result<S
             }
             Ok(Event::Text(e)) => {
                 if in_value {
-                    cell_value.push_str(&e.unescape()?);
+                    let decoded = e.decode()?;
+                    cell_value.push_str(&unescape(&decoded)?);
                 }
             }
             Ok(Event::Eof) => break,

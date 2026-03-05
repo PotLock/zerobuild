@@ -38,6 +38,7 @@ fn extract_pptx_text_with_limits(
     bytes: &[u8],
     max_total_slide_xml_bytes: u64,
 ) -> anyhow::Result<String> {
+    use quick_xml::escape::unescape;
     use quick_xml::events::Event;
     use quick_xml::Reader;
     use std::io::Read;
@@ -131,7 +132,8 @@ fn extract_pptx_text_with_limits(
                 }
                 Ok(Event::Text(e)) => {
                     if in_text {
-                        text.push_str(&e.unescape()?);
+                        let decoded = e.decode()?;
+                        text.push_str(&unescape(&decoded)?);
                     }
                 }
                 Ok(Event::Eof) => break,
@@ -188,6 +190,7 @@ fn normalize_slide_target(target: &str) -> Option<String> {
 fn parse_slide_order_from_manifest<R: std::io::Read + std::io::Seek>(
     archive: &mut zip::ZipArchive<R>,
 ) -> anyhow::Result<Vec<String>> {
+    use quick_xml::escape::unescape;
     use quick_xml::events::Event;
     use quick_xml::Reader;
     use std::io::Read;

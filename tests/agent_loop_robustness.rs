@@ -95,6 +95,7 @@ impl Tool for EchoTool {
             success: true,
             output: msg,
             error: None,
+            error_hint: None,
         })
     }
 }
@@ -118,6 +119,7 @@ impl Tool for FailingTool {
             success: false,
             output: String::new(),
             error: Some("Service unavailable: connection timeout".into()),
+            error_hint: None,
         })
     }
 }
@@ -157,6 +159,7 @@ impl Tool for CountingTool {
             success: true,
             output: format!("call #{}", *c),
             error: None,
+            error_hint: None,
         })
     }
 }

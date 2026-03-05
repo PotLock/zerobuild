@@ -244,6 +244,7 @@ mod tests {
             ),
             tool_calls: vec![],
             usage: None,
+            reasoning_content: None,
         };
         let dispatcher = XmlToolDispatcher;
         let (_, calls) = dispatcher.parse_response(&response);
@@ -261,6 +262,7 @@ mod tests {
                 arguments: "{\"path\":\"a.txt\"}".into(),
             }],
             usage: None,
+            reasoning_content: None,
         };
         let dispatcher = NativeToolDispatcher;
         let (_, calls) = dispatcher.parse_response(&response);

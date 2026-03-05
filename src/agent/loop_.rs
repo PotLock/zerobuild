@@ -389,7 +389,7 @@ fn parse_tool_call_value(value: &serde_json::Value) -> Option<ParsedToolCall> {
             return Some(ParsedToolCall {
                 name,
                 arguments,
-                tool_call_id: tool_call_id,
+                tool_call_id,
             });
         }
     }
@@ -411,7 +411,7 @@ fn parse_tool_call_value(value: &serde_json::Value) -> Option<ParsedToolCall> {
     Some(ParsedToolCall {
         name,
         arguments,
-        tool_call_id: tool_call_id,
+        tool_call_id,
     })
 }
 
@@ -3597,6 +3597,7 @@ mod tests {
                 text: Some("vision-ok".to_string()),
                 tool_calls: Vec::new(),
                 usage: None,
+                reasoning_content: None,
             })
         }
     }
@@ -3614,6 +3615,7 @@ mod tests {
                     text: Some(text.to_string()),
                     tool_calls: Vec::new(),
                     usage: None,
+                    reasoning_content: None,
                 })
                 .collect();
             Self {

@@ -672,6 +672,7 @@ mod tests {
             success: true,
             output: "hello".into(),
             error: None,
+            error_hint: None,
         };
         let json = serde_json::to_string(&result).unwrap();
         let parsed: ToolResult = serde_json::from_str(&json).unwrap();
@@ -686,6 +687,7 @@ mod tests {
             success: false,
             output: String::new(),
             error: Some("boom".into()),
+            error_hint: None,
         };
         let json = serde_json::to_string(&result).unwrap();
         let parsed: ToolResult = serde_json::from_str(&json).unwrap();

@@ -270,6 +270,7 @@ mod tests {
                 success: true,
                 output: "ok".into(),
                 error: None,
+                error_hint: None,
             })
         }
     }

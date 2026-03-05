@@ -671,7 +671,7 @@ mod tests {
             description: format!("Test SOP: {name}"),
             version: "1.0.0".into(),
             priority,
-            execution_mode: mode,
+            execution_mode: mode.into(),
             triggers: vec![SopTrigger::Manual],
             steps: vec![
                 SopStep {
@@ -1455,7 +1455,7 @@ mod tests {
         });
         let mut sop = test_sop("s1", SopExecutionMode::Supervised, SopPriority::Critical);
         // PriorityBased would auto-execute critical, so use Supervised to force WaitApproval
-        sop.execution_mode = SopExecutionMode::Supervised;
+        sop.execution_mode = SopExecutionMode::Supervised.into();
         engine.set_sops_for_test(vec![sop]);
 
         let action = engine.start_run("s1", manual_event()).unwrap();
