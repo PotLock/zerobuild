@@ -237,15 +237,17 @@ async fn test_pool_warm_agents() {
     let pool = AgentPool::with_config(workspace_manager, config);
 
     // Acquire and release to create warm agents
-    let agent_config = AgentConfig::for_role(AgentRole::Developer);
+    // Use different roles to ensure we get separate agents
+    let agent_config1 = AgentConfig::for_role(AgentRole::Developer);
     let id1 = pool
-        .acquire_agent(AgentRole::Developer, agent_config.clone())
+        .acquire_agent(AgentRole::Developer, agent_config1)
         .await
         .unwrap();
     pool.release_agent(id1).unwrap();
 
+    let agent_config2 = AgentConfig::for_role(AgentRole::Tester);
     let id2 = pool
-        .acquire_agent(AgentRole::Developer, agent_config)
+        .acquire_agent(AgentRole::Tester, agent_config2)
         .await
         .unwrap();
     pool.release_agent(id2).unwrap();

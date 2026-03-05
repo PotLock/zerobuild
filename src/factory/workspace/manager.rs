@@ -182,10 +182,20 @@ impl WorkspaceManager {
                 if path.is_dir() {
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                         // Parse workspace directory name (format: "role-uuid")
-                        if let Some((role, uuid_str)) = name.rsplit_once('-') {
-                            if let Ok(uuid) = Uuid::parse_str(uuid_str) {
+                        // UUID has 5 groups separated by dashes, so we need to find
+                        // where the UUID starts (after the 4th dash from the right)
+                        let parts: Vec<&str> = name.rsplitn(6, '-').collect();
+                        if parts.len() >= 5 {
+                            // Reconstruct UUID from last 5 parts (in reverse order due to rsplitn)
+                            let uuid_parts: Vec<&str> = parts[..5].iter().rev().copied().collect();
+                            let uuid_str = uuid_parts.join("-");
+                            if let Ok(uuid) = Uuid::parse_str(&uuid_str) {
+                                // Role is everything before the UUID
+                                let role_parts: Vec<&str> =
+                                    parts[5..].iter().rev().copied().collect();
+                                let role = role_parts.join("-");
                                 workspaces.push(WorkspaceId {
-                                    agent_role: role.to_string(),
+                                    agent_role: role,
                                     agent_uuid: uuid,
                                 });
                             }

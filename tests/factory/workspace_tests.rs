@@ -56,6 +56,9 @@ async fn test_workspace_isolation_path_validation() {
 
     // Valid paths within workspace should be allowed
     let valid_path = workspace.paths.sandbox.join("project/src/main.rs");
+    // Create the file so canonicalize() works
+    std::fs::create_dir_all(valid_path.parent().unwrap()).unwrap();
+    std::fs::write(&valid_path, "test content").unwrap();
     assert!(isolation.is_path_allowed(&valid_path));
 
     // Invalid path trying to escape sandbox - this might not exist so it returns false
