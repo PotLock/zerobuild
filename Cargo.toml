@@ -79,7 +79,7 @@ thiserror = "2.0"
 aho-corasick = "1.1"
 
 # UUID generation
-uuid = { version = "1.11", default-features = false, features = ["v4", "std", "serde"] }
+uuid = { version = "1.22", default-features = false, features = ["v4", "std", "serde"] }
 
 # Authenticated encryption (AEAD) for secret store
 chacha20poly1305 = "0.10"
