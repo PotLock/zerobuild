@@ -118,7 +118,7 @@ jobs:
                     --output-md artifacts/deny-policy-guard.md \
                     --fail-on-violation
 
-            - uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # v2
+            - uses: EmbarkStudios/cargo-deny-action@175dc7fd4fb85ec8f46948fb98f44db001149081 # v2
               with:
                   command: check advisories licenses sources
 
@@ -328,7 +328,7 @@ jobs:
 
             - name: Upload gitleaks SARIF
               if: always()
-              uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+              uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4
               with:
                   sarif_file: artifacts/gitleaks.sarif
                   category: gitleaks
