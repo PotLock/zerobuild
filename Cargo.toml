@@ -62,7 +62,7 @@ urlencoding = "2.1"
 nanohtml2text = "0.2"
 
 # Zip archive extraction
-zip = { version = "8.2", default-features = false, features = ["deflate"] }
+zip = { version = "8.5", default-features = false, features = ["deflate"] }
 
 # XML parsing (DOCX text extraction)
 quick-xml = "0.39"
@@ -79,7 +79,7 @@ thiserror = "2.0"
 aho-corasick = "1.1"
 
 # UUID generation
-uuid = { version = "1.22", default-features = false, features = ["v4", "std", "serde"] }
+uuid = { version = "1.23", default-features = false, features = ["v4", "std", "serde"] }
 
 # Authenticated encryption (AEAD) for secret store
 chacha20poly1305 = "0.10"
@@ -142,12 +142,12 @@ nostr-sdk = { version = "0.44", default-features = false, features = ["nip04", "
 regex = "1.10"
 hostname = "0.4.2"
 rustls = "0.23"
-rustls-pki-types = "1.14.0"
+rustls-pki-types = "1.14.1"
 tokio-rustls = "0.26.4"
-webpki-roots = "1.0.6"
+webpki-roots = "1.0.7"
 
 # email
-lettre = { version = "0.11.19", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"] }
+lettre = { version = "0.11.21", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"] }
 mail-parser = "0.11.2"
 async-imap = { version = "0.11",features = ["runtime-tokio"], default-features = false }
 
