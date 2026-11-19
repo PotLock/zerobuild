@@ -568,6 +568,7 @@ jobs:
                   retention-days: 14
 
     security-required:
+        timeout-minutes: 60
         name: Security Required Gate
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group')
         needs: [audit, deny, security-regressions, secrets, sbom, unsafe-debt]

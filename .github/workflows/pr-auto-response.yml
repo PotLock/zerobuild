@@ -17,6 +17,7 @@ env:
 
 jobs:
   contributor-tier-issues:
+    timeout-minutes: 60
     if: >-
       (github.event_name == 'issues' &&
       (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'labeled' || github.event.action == 'unlabeled')) ||
@@ -40,6 +41,7 @@ jobs:
             const script = require('./.github/workflows/scripts/pr_auto_response_contributor_tier.js');
             await script({ github, context, core });
   first-interaction:
+    timeout-minutes: 60
     if: github.event.action == 'opened'
     runs-on: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
     permissions:
@@ -71,6 +73,7 @@ jobs:
             See `CONTRIBUTING.md` and `docs/pr-workflow.md` for full collaboration rules.
 
   labeled-routes:
+    timeout-minutes: 60
     if: github.event.action == 'labeled'
     runs-on: [self-hosted, Linux, X64, aws-india, blacksmith-2vcpu-ubuntu-2404, hetzner]
     permissions:
